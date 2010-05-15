@@ -1,3 +1,6 @@
 docs
 classes
 lib/*.jar
+target
+*.tgz
+src.zip
