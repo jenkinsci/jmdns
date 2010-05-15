@@ -5,7 +5,7 @@
   <groupId>org.jvnet.hudson</groupId>
   <artifactId>jmdns</artifactId>
   <packaging>jar</packaging>
-  <version>3.1.6</version>
+  <version>3.1.6-hudson-1</version>
   <name>JmDNS</name>
   <description>
     Multi-cast DNS implementation for Java.
@@ -32,6 +32,10 @@
             </goals>
             <configuration>
               <tasks>
+                <ant dir="." target="clean" />
+                <ant dir="." target="jar">
+                  <property name="version" value="${project.version}"/>
+                </ant>
                 <attachArtifact file="lib/jmdns.jar" />
                 <zip file="src.zip" basedir="src" />
                 <attachArtifact file="src.zip" classifier="sources" type="jar"/>
