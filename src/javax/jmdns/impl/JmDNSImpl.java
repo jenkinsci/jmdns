@@ -212,8 +212,6 @@ public class JmDNSImpl extends JmDNS
         _incomingListener.setDaemon(true);
         // -------------------------------------------------
 
-        try
-        {
             InetAddress addr = address;
             String aName = "";
             if (addr == null)
@@ -241,15 +239,7 @@ public class JmDNSImpl extends JmDNS
             // Bind to multicast socket
             this.openMulticastSocket(this.getLocalHost());
             this.start(this.getServices().values());
-        }
-        catch (final IOException e)
-        {
-            // FIXME [PJYF Dec 17 2009] This looks really bizarre why not fail and throw an exception. What good will this provide?
-            _localHost = new HostInfo(null, "computer");
-            // Bind to multicast socket
-            this.openMulticastSocket(this.getLocalHost());
-            this.start(this.getServices().values());
-        }
+
         _name = (name != null ? name : _localHost.getName());
     }
 
