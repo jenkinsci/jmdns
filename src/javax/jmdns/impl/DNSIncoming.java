@@ -254,7 +254,7 @@ public final class DNSIncoming extends DNSMessage
                         else
                         {
                             // We should really do something with those options.
-                            logger.log(Level.INFO, "There was an OPT answer. Option code: " + optionCode + " data: " + this._hexString(optiondata));
+                            logger.log(Level.FINE, "There was an OPT answer. Option code: " + optionCode + " data: " + this._hexString(optiondata));
                         }
                     }
                 }
