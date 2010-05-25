@@ -4,3 +4,6 @@ lib/*.jar
 target
 *.tgz
 src.zip
+*.iml
+*.ipr
+*.iws
