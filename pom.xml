@@ -5,7 +5,7 @@
   <groupId>org.jvnet.hudson</groupId>
   <artifactId>jmdns</artifactId>
   <packaging>jar</packaging>
-  <version>3.2.1-hudson-1</version>
+  <version>3.4.0-jenkins-1</version>
   <name>JmDNS</name>
   <description>
     Multi-cast DNS implementation for Java.
