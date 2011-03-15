@@ -1,6 +1,6 @@
-//Copyright 2003-2005 Arthur van Hoff, Rick Blair
-//Licensed under Apache License version 2.0
-//Original license LGPL
+// Copyright 2003-2005 Arthur van Hoff, Rick Blair
+// Licensed under Apache License version 2.0
+// Original license LGPL
 
 package javax.jmdns.impl;
 
@@ -14,9 +14,8 @@ import javax.jmdns.impl.constants.DNSConstants;
 /**
  * Listen for multicast packets.
  */
-class SocketListener implements Runnable
-{
-    static Logger logger = Logger.getLogger(SocketListener.class.getName());
+class SocketListener extends Thread {
+    static Logger           logger = Logger.getLogger(SocketListener.class.getName());
 
     /**
      *
@@ -26,62 +25,46 @@ class SocketListener implements Runnable
     /**
      * @param jmDNSImpl
      */
-    SocketListener(JmDNSImpl jmDNSImpl)
-    {
-        super();
+    SocketListener(JmDNSImpl jmDNSImpl) {
+        super("SocketListener(" + (jmDNSImpl != null ? jmDNSImpl.getName() : "") + ")");
+        this.setDaemon(true);
         this._jmDNSImpl = jmDNSImpl;
     }
 
     @Override
-    public void run()
-    {
-        try
-        {
+    public void run() {
+        try {
             byte buf[] = new byte[DNSConstants.MAX_MSG_ABSOLUTE];
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
-            while (!this._jmDNSImpl.isCanceling() && !this._jmDNSImpl.isCanceled())
-            {
+            while (!this._jmDNSImpl.isCanceling() && !this._jmDNSImpl.isCanceled()) {
                 packet.setLength(buf.length);
                 this._jmDNSImpl.getSocket().receive(packet);
-                if (this._jmDNSImpl.isCanceling() || this._jmDNSImpl.isCanceled())
-                {
+                if (this._jmDNSImpl.isCanceling() || this._jmDNSImpl.isCanceled() || this._jmDNSImpl.isClosing() || this._jmDNSImpl.isClosed()) {
                     break;
                 }
-                try
-                {
-                    if (this._jmDNSImpl.getLocalHost().shouldIgnorePacket(packet))
-                    {
+                try {
+                    if (this._jmDNSImpl.getLocalHost().shouldIgnorePacket(packet)) {
                         continue;
                     }
 
                     DNSIncoming msg = new DNSIncoming(packet);
-                    if (logger.isLoggable(Level.FINEST))
-                    {
+                    if (logger.isLoggable(Level.FINEST)) {
                         logger.finest(this.getName() + ".run() JmDNS in:" + msg.print(true));
                     }
-                    if (msg.isQuery())
-                    {
-                        if (packet.getPort() != DNSConstants.MDNS_PORT)
-                        {
+                    if (msg.isQuery()) {
+                        if (packet.getPort() != DNSConstants.MDNS_PORT) {
                             this._jmDNSImpl.handleQuery(msg, packet.getAddress(), packet.getPort());
                         }
                         this._jmDNSImpl.handleQuery(msg, this._jmDNSImpl.getGroup(), DNSConstants.MDNS_PORT);
-                    }
-                    else
-                    {
+                    } else {
                         this._jmDNSImpl.handleResponse(msg);
                     }
-                }
-                catch (IOException e)
-                {
+                } catch (IOException e) {
                     logger.log(Level.WARNING, this.getName() + ".run() exception ", e);
                 }
             }
-        }
-        catch (IOException e)
-        {
-            if (!this._jmDNSImpl.isCanceling() && !this._jmDNSImpl.isCanceled())
-            {
+        } catch (IOException e) {
+            if (!this._jmDNSImpl.isCanceling() && !this._jmDNSImpl.isCanceled() && !this._jmDNSImpl.isClosing() && !this._jmDNSImpl.isClosed()) {
                 logger.log(Level.WARNING, this.getName() + ".run() exception ", e);
                 this._jmDNSImpl.recover();
             }
@@ -92,19 +75,15 @@ class SocketListener implements Runnable
         // thread has died.
         // Note: This is placed here to avoid locking the IoLock object and
         // 'this' instance together.
-        synchronized (this._jmDNSImpl)
-        {
+        if (logger.isLoggable(Level.FINEST)) {
+            logger.finest(this.getName() + ".run() exiting.");
+        }
+        synchronized (this._jmDNSImpl) {
             this._jmDNSImpl.notifyAll();
         }
     }
 
-    public String getName()
-    {
-        return "SocketListener(" + (this.getDns() != null ? this.getDns().getName() : "") + ")";
-    }
-
-    public JmDNSImpl getDns()
-    {
+    public JmDNSImpl getDns() {
         return _jmDNSImpl;
     }
 

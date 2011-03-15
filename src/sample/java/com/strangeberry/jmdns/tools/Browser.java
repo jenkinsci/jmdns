@@ -1,7 +1,6 @@
-//Licensed under Apache License version 2.0
-//Original license LGPL
+// Licensed under Apache License version 2.0
+// Original license LGPL
 
-// %Z%%M%, %I%, %G%
 //
 // This library is free software; you can redistribute it and/or
 // modify it under the terms of the GNU Lesser General Public
@@ -10,12 +9,12 @@
 //
 // This library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 // Lesser General Public License for more details.
 //
 // You should have received a copy of the GNU Lesser General Public
 // License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
 
 package com.strangeberry.jmdns.tools;
 
@@ -24,9 +23,10 @@ import java.awt.Color;
 import java.awt.Container;
 import java.awt.GridLayout;
 import java.io.IOException;
+import java.net.InetAddress;
 import java.util.Enumeration;
 
-import javax.jmdns.JmDNS;
+import javax.jmdns.JmmDNS;
 import javax.jmdns.ServiceEvent;
 import javax.jmdns.ServiceInfo;
 import javax.jmdns.ServiceListener;
@@ -49,31 +49,28 @@ import javax.swing.table.AbstractTableModel;
  * User Interface for browsing JmDNS services.
  *
  * @author Arthur van Hoff, Werner Randelshofer
- * @version %I%, %G%
  */
-public class Browser extends JFrame implements ServiceListener, ServiceTypeListener, ListSelectionListener
-{
+public class Browser extends JFrame implements ServiceListener, ServiceTypeListener, ListSelectionListener {
     /**
      *
      */
     private static final long serialVersionUID = 5750114542524415107L;
-    JmDNS jmdns;
+    JmmDNS                    jmmdns;
     // Vector headers;
-    String type;
-    DefaultListModel types;
-    JList typeList;
-    DefaultListModel services;
-    JList serviceList;
-    JTextArea info;
+    String                    type;
+    DefaultListModel          types;
+    JList                     typeList;
+    DefaultListModel          services;
+    JList                     serviceList;
+    JTextArea                 info;
 
     /**
-     * @param mDNS
+     * @param mmDNS
      * @throws IOException
      */
-    Browser(JmDNS mDNS) throws IOException
-    {
+    Browser(JmmDNS mmDNS) throws IOException {
         super("JmDNS Browser");
-        this.jmdns = mDNS;
+        this.jmmdns = mmDNS;
 
         Color bg = new Color(230, 230, 230);
         EmptyBorder border = new EmptyBorder(5, 5, 5, 5);
@@ -122,16 +119,15 @@ public class Browser extends JFrame implements ServiceListener, ServiceTypeListe
         setLocation(100, 100);
         setSize(600, 400);
 
-        mDNS.addServiceTypeListener(this);
+        this.jmmdns.addServiceTypeListener(this);
 
         // register some well known types
         // String list[] = new String[] { "_http._tcp.local.", "_ftp._tcp.local.", "_tftp._tcp.local.", "_ssh._tcp.local.", "_smb._tcp.local.", "_printer._tcp.local.", "_airport._tcp.local.", "_afpovertcp._tcp.local.", "_ichat._tcp.local.",
         // "_eppc._tcp.local.", "_presence._tcp.local.", "_rfb._tcp.local.", "_daap._tcp.local.", "_touchcs._tcp.local." };
         String[] list = new String[] {};
 
-        for (int i = 0; i < list.length; i++)
-        {
-            mDNS.registerServiceType(list[i]);
+        for (int i = 0; i < list.length; i++) {
+            this.jmmdns.registerServiceType(list[i]);
         }
 
         this.setVisible(true);
@@ -139,19 +135,16 @@ public class Browser extends JFrame implements ServiceListener, ServiceTypeListe
 
     /*
      * (non-Javadoc)
-     *
      * @see javax.jmdns.ServiceListener#serviceAdded(javax.jmdns.ServiceEvent)
      */
     @Override
-    public void serviceAdded(ServiceEvent event)
-    {
+    public void serviceAdded(ServiceEvent event) {
         final String name = event.getName();
 
         System.out.println("ADD: " + name);
         SwingUtilities.invokeLater(new Runnable() {
             @Override
-            public void run()
-            {
+            public void run() {
                 insertSorted(services, name);
             }
         });
@@ -159,51 +152,45 @@ public class Browser extends JFrame implements ServiceListener, ServiceTypeListe
 
     /*
      * (non-Javadoc)
-     *
      * @see javax.jmdns.ServiceListener#serviceRemoved(javax.jmdns.ServiceEvent)
      */
     @Override
-    public void serviceRemoved(ServiceEvent event)
-    {
+    public void serviceRemoved(ServiceEvent event) {
         final String name = event.getName();
 
         System.out.println("REMOVE: " + name);
         SwingUtilities.invokeLater(new Runnable() {
             @Override
-            public void run()
-            {
+            public void run() {
                 services.removeElement(name);
             }
         });
     }
 
     @Override
-    public void serviceResolved(ServiceEvent event)
-    {
+    public void serviceResolved(ServiceEvent event) {
         final String name = event.getName();
 
         System.out.println("RESOLVED: " + name);
-        if (name.equals(serviceList.getSelectedValue()))
-        {
-            this.dislayInfo(event.getInfo());
+        if (name.equals(serviceList.getSelectedValue())) {
+            ServiceInfo[] serviceInfos = this.jmmdns.getServiceInfos(type, name);
+            this.dislayInfo(serviceInfos);
+            // this.dislayInfo(new ServiceInfo[] { event.getInfo() });
         }
     }
 
     /*
      * (non-Javadoc)
-     *
      * @see javax.jmdns.ServiceTypeListener#serviceTypeAdded(javax.jmdns.ServiceEvent)
      */
     @Override
-    public void serviceTypeAdded(ServiceEvent event)
-    {
+    public void serviceTypeAdded(ServiceEvent event) {
         final String aType = event.getType();
 
         System.out.println("TYPE: " + aType);
         SwingUtilities.invokeLater(new Runnable() {
             @Override
-            public void run()
-            {
+            public void run() {
                 insertSorted(types, aType);
             }
         });
@@ -211,21 +198,20 @@ public class Browser extends JFrame implements ServiceListener, ServiceTypeListe
 
     /*
      * (non-Javadoc)
-     *
      * @see javax.jmdns.ServiceTypeListener#subTypeForServiceTypeAdded(javax.jmdns.ServiceEvent)
      */
     @Override
-    public void subTypeForServiceTypeAdded(ServiceEvent event)
-    {
+    public void subTypeForServiceTypeAdded(ServiceEvent event) {
         System.out.println("SUBTYPE: " + event.getType());
     }
 
-    void insertSorted(DefaultListModel model, String value)
-    {
-        for (int i = 0, n = model.getSize(); i < n; i++)
-        {
-            if (value.compareToIgnoreCase((String) model.elementAt(i)) < 0)
-            {
+    void insertSorted(DefaultListModel model, String value) {
+        for (int i = 0, n = model.getSize(); i < n; i++) {
+            int result = value.compareToIgnoreCase((String) model.elementAt(i));
+            if (result == 0) {
+                return;
+            }
+            if (result < 0) {
                 model.insertElementAt(value, i);
                 return;
             }
@@ -239,71 +225,63 @@ public class Browser extends JFrame implements ServiceListener, ServiceTypeListe
      * @param e
      */
     @Override
-    public void valueChanged(ListSelectionEvent e)
-    {
-        if (!e.getValueIsAdjusting())
-        {
-            if (e.getSource() == typeList)
-            {
+    public void valueChanged(ListSelectionEvent e) {
+        if (!e.getValueIsAdjusting()) {
+            if (e.getSource() == typeList) {
                 type = (String) typeList.getSelectedValue();
                 System.out.println("VALUE CHANGED: type: " + type);
-                jmdns.removeServiceListener(type, this);
+                this.jmmdns.removeServiceListener(type, this);
                 services.setSize(0);
                 info.setText("");
-                if (type != null)
-                {
-                    jmdns.addServiceListener(type, this);
+                if (type != null) {
+                    this.jmmdns.addServiceListener(type, this);
                 }
-            }
-            else if (e.getSource() == serviceList)
-            {
+            } else if (e.getSource() == serviceList) {
                 String name = (String) serviceList.getSelectedValue();
                 System.out.println("VALUE CHANGED: type: " + type + " service: " + name);
-                if (name == null)
-                {
+                if (name == null) {
                     info.setText("");
-                }
-                else
-                {
-                    ServiceInfo service = jmdns.getServiceInfo(type, name);
+                } else {
+                    ServiceInfo[] serviceInfos = this.jmmdns.getServiceInfos(type, name);
                     // This is actually redundant. getServiceInfo will force the resolution of the service and call serviceResolved
-                    this.dislayInfo(service);
+                    this.dislayInfo(serviceInfos);
                 }
             }
         }
     }
 
-    private void dislayInfo(ServiceInfo service)
-    {
-        System.out.println("INFO: " + service);
-        if (service == null)
-        {
-            info.setText("service not found");
-        }
-        else
-        {
-            StringBuffer buf = new StringBuffer();
-            buf.append(service.getName());
-            buf.append('.');
-            buf.append(service.getTypeWithSubtype());
-            buf.append('\n');
-            buf.append(service.getServer());
-            buf.append(':');
-            buf.append(service.getPort());
-            buf.append('\n');
-            buf.append(service.getInetAddress());
-            buf.append(':');
-            buf.append(service.getPort());
-            buf.append('\n');
-            for (Enumeration<String> names = service.getPropertyNames(); names.hasMoreElements();)
-            {
-                String prop = names.nextElement();
-                buf.append(prop);
-                buf.append('=');
-                buf.append(service.getPropertyString(prop));
+    private void dislayInfo(ServiceInfo[] serviceInfos) {
+        if (serviceInfos.length == 0) {
+            System.out.println("INFO: null");
+            info.setText("service not found\n");
+        } else {
+            StringBuilder buf = new StringBuilder(2048);
+            System.out.println("INFO: " + serviceInfos.length);
+            for (ServiceInfo service : serviceInfos) {
+                System.out.println("INFO: " + service);
+                buf.append(service.getName());
+                buf.append('.');
+                buf.append(service.getTypeWithSubtype());
                 buf.append('\n');
+                buf.append(service.getServer());
+                buf.append(':');
+                buf.append(service.getPort());
+                buf.append('\n');
+                for (InetAddress address : service.getInetAddresses()) {
+                    buf.append(address);
+                    buf.append(':');
+                    buf.append(service.getPort());
+                    buf.append('\n');
+                }
+                for (Enumeration<String> names = service.getPropertyNames(); names.hasMoreElements();) {
+                    String prop = names.nextElement();
+                    buf.append(prop);
+                    buf.append('=');
+                    buf.append(service.getPropertyString(prop));
+                    buf.append('\n');
+                }
+                buf.append("------------------------\n");
             }
-
             this.info.setText(buf.toString());
         }
     }
@@ -311,18 +289,15 @@ public class Browser extends JFrame implements ServiceListener, ServiceTypeListe
     /**
      * Table data.
      */
-    class ServiceTableModel extends AbstractTableModel
-    {
+    class ServiceTableModel extends AbstractTableModel {
         /**
          *
          */
         private static final long serialVersionUID = 5607994569609827570L;
 
         @Override
-        public String getColumnName(int column)
-        {
-            switch (column)
-            {
+        public String getColumnName(int column) {
+            switch (column) {
                 case 0:
                     return "service";
                 case 1:
@@ -331,32 +306,28 @@ public class Browser extends JFrame implements ServiceListener, ServiceTypeListe
                     return "port";
                 case 3:
                     return "text";
-       }
+            }
             return null;
         }
 
         @Override
-        public int getColumnCount()
-        {
+        public int getColumnCount() {
             return 1;
         }
 
         @Override
-        public int getRowCount()
-        {
+        public int getRowCount() {
             return services.size();
         }
 
         @Override
-        public Object getValueAt(int row, int col)
-        {
+        public Object getValueAt(int row, int col) {
             return services.elementAt(row);
         }
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return "RVBROWSER";
     }
 
@@ -366,8 +337,7 @@ public class Browser extends JFrame implements ServiceListener, ServiceTypeListe
      * @param argv
      * @throws IOException
      */
-    public static void main(String argv[]) throws IOException
-    {
-        new Browser(JmDNS.create());
+    public static void main(String argv[]) throws IOException {
+        new Browser(JmmDNS.Factory.getInstance());
     }
 }
