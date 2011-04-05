@@ -5,7 +5,7 @@
   <groupId>org.jenkins-ci</groupId>
   <artifactId>jmdns</artifactId>
   <packaging>jar</packaging>
-  <version>3.4.0-jenkins-1</version>
+  <version>3.4.0-jenkins-2</version>
   <name>JmDNS</name>
   <description>
     Multi-cast DNS implementation for Java.
@@ -17,6 +17,10 @@
       <url>http://maven.jenkins-ci.org:8081/content/repositories/releases</url>
     </repository>
   </distributionManagement>
+	
+	<properties>
+		<jdk.version>1.5</jdk.version>
+	</properties>
 
   <build>
     <plugins>
@@ -34,6 +38,7 @@
               <tasks>
                 <ant dir="." target="clean" />
                 <ant dir="." target="jar">
+									<property name="jdk" value="${jdk.version}"/>
                   <property name="version" value="${project.version}"/>
                 </ant>
                 <attachArtifact file="build/lib/jmdns.jar" />
@@ -47,8 +52,8 @@
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <source>1.5</source>
-          <target>1.5</target>
+          <source>${jdk.version}</source>
+          <target>${jdk.version}</target>
         </configuration>
       </plugin>
       <plugin>
