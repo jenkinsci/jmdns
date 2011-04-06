@@ -18,9 +18,9 @@
     </repository>
   </distributionManagement>
 	
-	<properties>
-		<jdk.version>1.5</jdk.version>
-	</properties>
+  <properties>
+    <jdk.version>1.5</jdk.version>
+  </properties>
 
   <build>
     <plugins>
@@ -38,7 +38,7 @@
               <tasks>
                 <ant dir="." target="clean" />
                 <ant dir="." target="jar">
-									<property name="jdk" value="${jdk.version}"/>
+                  <property name="jdk" value="${jdk.version}"/>
                   <property name="version" value="${project.version}"/>
                 </ant>
                 <attachArtifact file="build/lib/jmdns.jar" />
