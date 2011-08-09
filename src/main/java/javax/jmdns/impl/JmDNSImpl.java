@@ -1841,6 +1841,59 @@ public class JmDNSImpl extends JmDNS implements DNSStatefulObject, DNSTaskStarte
      * {@inheritDoc}
      */
     @Override
+    public void abort() {
+        if (this.isClosing()) {
+            return;
+        }
+
+        if (logger.isLoggable(Level.FINER)) {
+            logger.finer("Aborting JmDNS: " + this);
+        }
+        // Stop JmDNS
+        // This protects against recursive calls
+        if (this.closeState()) {
+            // We got the tie break now clean up
+
+            // Stop the timer
+            logger.finer("Canceling the timer");
+            this.cancelTimer();
+
+            // Cancel all services
+//            this.unregisterAllServices();     // KK: this is a blocking call that doesn't fit 'abort'
+            this.disposeServiceCollectors();
+
+// KK: another blocking call
+//            if (logger.isLoggable(Level.FINER)) {
+//                logger.finer("Wait for JmDNS cancel: " + this);
+//            }
+//            this.waitForCanceled(DNSConstants.CLOSE_TIMEOUT);
+
+            // Stop the canceler timer
+            logger.finer("Canceling the state timer");
+            this.cancelStateTimer();
+
+            // Stop the executor
+            _executor.shutdown();
+
+            // close socket
+            this.closeMulticastSocket();
+
+            // remove the shutdown hook
+            if (_shutdown != null) {
+                Runtime.getRuntime().removeShutdownHook(_shutdown);
+            }
+
+            if (logger.isLoggable(Level.FINER)) {
+                logger.finer("JmDNS closed.");
+            }
+        }
+        advanceState(null);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
     @Deprecated
     public void printServices() {
         System.err.println(toString());

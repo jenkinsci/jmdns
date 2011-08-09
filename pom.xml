@@ -5,7 +5,7 @@
   <groupId>org.jenkins-ci</groupId>
   <artifactId>jmdns</artifactId>
   <packaging>jar</packaging>
-  <version>3.4.0-jenkins-2</version>
+  <version>3.4.0-jenkins-3</version>
   <name>JmDNS</name>
   <description>
     Multi-cast DNS implementation for Java.
