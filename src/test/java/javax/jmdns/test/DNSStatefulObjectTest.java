@@ -3,8 +3,7 @@
  */
 package javax.jmdns.test;
 
-import static junit.framework.Assert.assertFalse;
-import static junit.framework.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import javax.jmdns.impl.DNSStatefulObject.DNSStatefulObjectSemaphore;
 
@@ -22,7 +21,7 @@ public class DNSStatefulObjectTest {
         private final DNSStatefulObjectSemaphore _semaphore;
         private final long                       _timeout;
 
-        private boolean                          _hasFinished;
+        private boolean _hasFinished;
 
         public WaitingThread(DNSStatefulObjectSemaphore semaphore, long timeout) {
             super("Waiting thread");
@@ -60,7 +59,7 @@ public class DNSStatefulObjectTest {
 
     @Test
     public void testWaitAndSignal() throws InterruptedException {
-        WaitingThread thread = new WaitingThread(_semaphore, 0);
+        WaitingThread thread = new WaitingThread(_semaphore, Long.MAX_VALUE);
         thread.start();
         Thread.sleep(1);
         assertFalse("The thread should be waiting.", thread.hasFinished());

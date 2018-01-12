@@ -3,22 +3,14 @@
  */
 package javax.jmdns.test;
 
-import static junit.framework.Assert.assertEquals;
-import static junit.framework.Assert.assertNull;
-import static junit.framework.Assert.assertNotNull;
-import static junit.framework.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Level;
-import java.util.logging.LogManager;
-import java.util.logging.Logger;
 
 import javax.jmdns.JmDNS;
 import javax.jmdns.ServiceEvent;
@@ -30,14 +22,12 @@ import javax.jmdns.impl.tasks.state.DNSStateTask;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- *
- */
 public class TextUpdateTest {
 
-    private ServiceInfo         service;
-    private ServiceInfo         printer;
-    private MockListener        serviceListenerMock;
+    private ServiceInfo  service;
+    private ServiceInfo  printer;
+    private ServiceInfo  case_sensitive_printer;
+    private MockListener serviceListenerMock;
 
     private final static String serviceKey = "srvname"; // Max 9 chars
 
@@ -94,53 +84,41 @@ public class TextUpdateTest {
 
         @Override
         public String toString() {
-            StringBuilder aLog = new StringBuilder();
-            aLog.append("Services Added: " + _serviceAdded.size());
+            final StringBuilder sb = new StringBuilder();
+            sb.append("Services Added: " + _serviceAdded.size());
             for (ServiceEvent event : _serviceAdded) {
-                aLog.append("\n\tevent name: '");
-                aLog.append(event.getName());
-                aLog.append("' type: '");
-                aLog.append(event.getType());
-                aLog.append("' info: '");
-                aLog.append(event.getInfo());
+                sb.append("\n\tevent name: '");
+                sb.append(event.getName());
+                sb.append("' type: '");
+                sb.append(event.getType());
+                sb.append("' info: '");
+                sb.append(event.getInfo());
             }
-            aLog.append("\nServices Removed: " + _serviceRemoved.size());
+            sb.append("\nServices Removed: " + _serviceRemoved.size());
             for (ServiceEvent event : _serviceRemoved) {
-                aLog.append("\n\tevent name: '");
-                aLog.append(event.getName());
-                aLog.append("' type: '");
-                aLog.append(event.getType());
-                aLog.append("' info: '");
-                aLog.append(event.getInfo());
+                sb.append("\n\tevent name: '");
+                sb.append(event.getName());
+                sb.append("' type: '");
+                sb.append(event.getType());
+                sb.append("' info: '");
+                sb.append(event.getInfo());
             }
-            aLog.append("\nServices Resolved: " + _serviceResolved.size());
+            sb.append("\nServices Resolved: " + _serviceResolved.size());
             for (ServiceEvent event : _serviceResolved) {
-                aLog.append("\n\tevent name: '");
-                aLog.append(event.getName());
-                aLog.append("' type: '");
-                aLog.append(event.getType());
-                aLog.append("' info: '");
-                aLog.append(event.getInfo());
+                sb.append("\n\tevent name: '");
+                sb.append(event.getName());
+                sb.append("' type: '");
+                sb.append(event.getType());
+                sb.append("' info: '");
+                sb.append(event.getInfo());
             }
-            return aLog.toString();
+            return sb.toString();
         }
 
     }
 
     @Before
     public void setup() {
-        boolean log = false;
-        if (log) {
-            ConsoleHandler handler = new ConsoleHandler();
-            handler.setLevel(Level.FINEST);
-            for (Enumeration<String> enumerator = LogManager.getLogManager().getLoggerNames(); enumerator.hasMoreElements();) {
-                String loggerName = enumerator.nextElement();
-                Logger logger = Logger.getLogger(loggerName);
-                logger.addHandler(handler);
-                logger.setLevel(Level.FINEST);
-            }
-        }
-
         String text = "Test hypothetical web server";
         Map<String, byte[]> properties = new HashMap<String, byte[]>();
         properties.put(serviceKey, text.getBytes());
@@ -149,6 +127,12 @@ public class TextUpdateTest {
         properties.clear();
         properties.put(serviceKey, text.getBytes());
         printer = ServiceInfo.create("_html._tcp.local.", "printer-someuniqueid", "_printer", 80, 0, 0, true, properties);
+        text = "Test hypothetical print server with case-sensitive sub-type";
+        properties.clear();
+        properties.put(serviceKey, text.getBytes());
+        case_sensitive_printer = ServiceInfo.create("_html._tcp.local.", "cs-printer-someuniqueid", "_Printer", 80, 0, 0, true, properties);
+
+        
         serviceListenerMock = new MockListener();
     }
 
@@ -250,7 +234,7 @@ public class TextUpdateTest {
             serviceListenerMock.reset();
             Map<String, byte[]> properties = new HashMap<String, byte[]>();
             service.setText(properties);
-            Thread.sleep(3000);
+            Thread.sleep(4000);
             servicesResolved = serviceListenerMock.servicesResolved();
             assertEquals("We did not get the service text updated event.", 1, servicesResolved.size());
             result = servicesResolved.get(servicesResolved.size() - 1).getInfo();
@@ -375,6 +359,42 @@ public class TextUpdateTest {
             assertEquals("Did not get the expected service info: ", printer, result);
             assertEquals("Did not get the expected service info subtype: ", printer.getSubtype(), result.getSubtype());
             assertEquals("Did not get the expected service info text: ", printer.getPropertyString(serviceKey), result.getPropertyString(serviceKey));
+            serviceListenerMock.reset();
+        } finally {
+            if (registry != null) registry.close();
+            if (newServiceRegistry != null) newServiceRegistry.close();
+        }
+
+    }
+    
+    @Test
+    public void testCaseSensitiveSubtype() throws IOException {
+        System.out.println("Unit Test: testCaseSensitiveSubtype()");
+        JmDNS registry = null;
+        JmDNS newServiceRegistry = null;
+        try {
+            registry = JmDNS.create("Listener");
+            registry.addServiceListener(service.getType(), serviceListenerMock);
+            //
+            newServiceRegistry = JmDNS.create("Registry");
+            newServiceRegistry.registerService(case_sensitive_printer);
+
+            // We get the service added event when we register the service. However the service has not been resolved at this point.
+            // The info associated with the event only has the minimum information i.e. name and type.
+            List<ServiceEvent> servicesAdded = serviceListenerMock.servicesAdded();
+            assertEquals("We did not get the service added event.", 1, servicesAdded.size());
+            ServiceInfo info = servicesAdded.get(servicesAdded.size() - 1).getInfo();
+            assertEquals("We did not get the right name for the resolved service:", case_sensitive_printer.getName(), info.getName());
+            assertEquals("We did not get the right type for the resolved service:", case_sensitive_printer.getType(), info.getType());
+            // We get the service added event when we register the service. However the service has not been resolved at this point.
+            // The info associated with the event only has the minimum information i.e. name and type.
+            List<ServiceEvent> servicesResolved = serviceListenerMock.servicesResolved();
+            assertEquals("We did not get the service resolved event.", 1, servicesResolved.size());
+            ServiceInfo result = servicesResolved.get(servicesResolved.size() - 1).getInfo();
+            assertNotNull("Did not get the expected service info: ", result);
+            assertEquals("Did not get the expected service info: ", case_sensitive_printer, result);
+            assertEquals("Did not get the expected service info subtype: ", case_sensitive_printer.getSubtype(), result.getSubtype());
+            assertEquals("Did not get the expected service info text: ", case_sensitive_printer.getPropertyString(serviceKey), result.getPropertyString(serviceKey));
             serviceListenerMock.reset();
         } finally {
             if (registry != null) registry.close();

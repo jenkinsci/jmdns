@@ -115,7 +115,7 @@ public interface NetworkTopologyDiscovery {
         }
 
         /**
-         * Return the instance of the Multihommed Multicast DNS.
+         * Return the instance of the Multihomed Multicast DNS.
          *
          * @return the JmmDNS
          */
@@ -146,5 +146,19 @@ public interface NetworkTopologyDiscovery {
      * @return <code>true</code> is the address is to be used, <code>false</code> otherwise.
      */
     public boolean useInetAddress(NetworkInterface networkInterface, InetAddress interfaceAddress);
+
+    /**
+     * Locks the given InetAddress if the device requires it.
+     *
+     * @param interfaceAddress
+     */
+    public void lockInetAddress(InetAddress interfaceAddress);
+
+    /**
+     * Locks the given InetAddress if the device requires it.
+     *
+     * @param interfaceAddress
+     */
+    public void unlockInetAddress(InetAddress interfaceAddress);
 
 }

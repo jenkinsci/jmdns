@@ -3,10 +3,15 @@
  */
 package javax.jmdns.test;
 
-import static junit.framework.Assert.assertEquals;
+import static org.junit.Assert.assertEquals;
 
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
+import javax.jmdns.ServiceInfo;
 import javax.jmdns.ServiceInfo.Fields;
 import javax.jmdns.impl.ServiceInfoImpl;
 
@@ -74,6 +79,20 @@ public class ServiceInfoTest {
     }
 
     @Test
+    public void testDecodeServiceWithUnderscoreType() {
+        String type = "_x_lumenera_mjpeg1._udp.local.";
+
+        Map<Fields, String> map = ServiceInfoImpl.decodeQualifiedNameMapForType(type);
+
+        assertEquals("We did not get the right domain:", "local", map.get(Fields.Domain));
+        assertEquals("We did not get the right protocol:", "udp", map.get(Fields.Protocol));
+        assertEquals("We did not get the right application:", "x_lumenera_mjpeg1", map.get(Fields.Application));
+        assertEquals("We did not get the right name:", "", map.get(Fields.Instance));
+        assertEquals("We did not get the right subtype:", "", map.get(Fields.Subtype));
+
+    }
+
+    @Test
     public void testDecodeServiceTCPType() {
         String type = "_afpovertcp._tcp.local.";
 
@@ -109,6 +128,19 @@ public class ServiceInfoTest {
         assertEquals("We did not get the right protocol:", "tcp", map.get(Fields.Protocol));
         assertEquals("We did not get the right application:", "home-sharing", map.get(Fields.Application));
         assertEquals("We did not get the right name:", "My New Itunes Service", map.get(Fields.Instance));
+        assertEquals("We did not get the right subtype:", "", map.get(Fields.Subtype));
+    }
+
+    @Test
+    public void testDecodeServiceNameWithSpecialCharacter() {
+        String type = "&test._home-sharing._tcp.local.";
+
+        Map<Fields, String> map = ServiceInfoImpl.decodeQualifiedNameMapForType(type);
+
+        assertEquals("We did not get the right domain:", "local", map.get(Fields.Domain));
+        assertEquals("We did not get the right protocol:", "tcp", map.get(Fields.Protocol));
+        assertEquals("We did not get the right application:", "home-sharing", map.get(Fields.Application));
+        assertEquals("We did not get the right name:", "&test", map.get(Fields.Instance));
         assertEquals("We did not get the right subtype:", "", map.get(Fields.Subtype));
     }
 
@@ -162,6 +194,63 @@ public class ServiceInfoTest {
         assertEquals("We did not get the right application:", "Home-Sharing", map.get(Fields.Application));
         assertEquals("We did not get the right name:", "My New Itunes Service", map.get(Fields.Instance));
         assertEquals("We did not get the right subtype:", "", map.get(Fields.Subtype));
+    }
+
+    @Test
+    public void testDecodeServiceTypeMissingDomain() {
+        String type = "myservice._ftp._tcp.";
+
+        Map<Fields, String> map = ServiceInfoImpl.decodeQualifiedNameMapForType(type);
+
+        assertEquals("We did not get the right domain:", "", map.get(Fields.Domain));
+        assertEquals("We did not get the right protocol:", "tcp", map.get(Fields.Protocol));
+        assertEquals("We did not get the right application:", "ftp", map.get(Fields.Application));
+        assertEquals("We did not get the right name:", "myservice", map.get(Fields.Instance));
+        assertEquals("We did not get the right subtype:", "", map.get(Fields.Subtype));
+
+    }
+
+    @Test
+    public void testEncodeDecodeProperties() {
+
+        String service_type = "_ros-master._tcp.local.";
+        String service_name = "RosMaster";
+        int service_port = 8888;
+        String service_key = "description"; // Max 9 chars
+        String service_text = "Hypothetical ros master";
+        Map<String, byte[]> properties = new HashMap<String, byte[]>();
+        properties.put(service_key, service_text.getBytes());
+        ServiceInfo service_info = null;
+        service_info = ServiceInfo.create(service_type, service_name, service_port, ""); // case 1, no text
+        assertEquals("We should have got the same properties (Empty):", null, service_info.getPropertyString(service_key));
+        service_info = ServiceInfo.create(service_type, service_name, service_port, 0, 0, true, service_key + "=" + service_text); // case 2, textual description
+        assertEquals("We should have got the same properties (String):", service_text, service_info.getPropertyString(service_key));
+        service_info = ServiceInfo.create(service_type, service_name, service_port, 0, 0, true, properties); // case 3, properties assigned textual description
+        assertEquals("We should have got the same properties (Map):", service_text, service_info.getPropertyString(service_key));
+
+    }
+
+    @Test
+    public void testDecodePropertiesWithoutEqualsSign() {
+        String service_type = "_ros-master._tcp.local.";
+        String service_name = "RosMaster";
+        int service_port = 8888;
+        ServiceInfo service_info = null;
+        // Represents TXT records "a" "b=c"
+        byte[] txt = {1, 97, 3, 98, 61, 99};
+        service_info = ServiceInfo.create(service_type, service_name, service_port, 0, 0, txt);
+
+        Set<String> expectedKeys = new HashSet<String>();
+        expectedKeys.add("a");
+        expectedKeys.add("b");
+
+        Enumeration<String> enumeration = service_info.getPropertyNames();
+        Set<String> keys = new HashSet<String>();
+        while (enumeration.hasMoreElements()) {
+            keys.add(enumeration.nextElement());
+        }
+        assertEquals(expectedKeys, keys);
+        assertEquals("c", service_info.getPropertyString("b"));
     }
 
 }

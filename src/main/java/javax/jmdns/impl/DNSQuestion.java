@@ -6,8 +6,8 @@ package javax.jmdns.impl;
 
 import java.net.InetAddress;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jmdns.ServiceInfo;
 import javax.jmdns.ServiceInfo.Fields;
@@ -18,11 +18,11 @@ import javax.jmdns.impl.constants.DNSRecordType;
 
 /**
  * A DNS question.
- * 
+ *
  * @author Arthur van Hoff, Pierre Frisch
  */
 public class DNSQuestion extends DNSEntry {
-    private static Logger logger = Logger.getLogger(DNSQuestion.class.getName());
+    private static Logger logger = LoggerFactory.getLogger(DNSQuestion.class.getName());
 
     /**
      * Address question.
@@ -43,7 +43,7 @@ public class DNSQuestion extends DNSEntry {
         @Override
         public boolean iAmTheOnlyOne(JmDNSImpl jmDNSImpl) {
             String name = this.getName().toLowerCase();
-            return jmDNSImpl.getLocalHost().getName().equals(name) || jmDNSImpl.getServices().keySet().contains(name);
+            return jmDNSImpl.getLocalHost().getName().equals(name) || jmDNSImpl.getServices().containsKey(name);
         }
 
     }
@@ -67,7 +67,7 @@ public class DNSQuestion extends DNSEntry {
         @Override
         public boolean iAmTheOnlyOne(JmDNSImpl jmDNSImpl) {
             String name = this.getName().toLowerCase();
-            return jmDNSImpl.getLocalHost().getName().equals(name) || jmDNSImpl.getServices().keySet().contains(name);
+            return jmDNSImpl.getLocalHost().getName().equals(name) || jmDNSImpl.getServices().containsKey(name);
         }
 
     }
@@ -96,8 +96,7 @@ public class DNSQuestion extends DNSEntry {
                 this.addAnswersForServiceInfo(jmDNSImpl, answers, (ServiceInfoImpl) serviceInfo);
             }
             if (this.isServicesDiscoveryMetaQuery()) {
-                for (String serviceType : jmDNSImpl.getServiceTypes().keySet()) {
-                    ServiceTypeEntry typeEntry = jmDNSImpl.getServiceTypes().get(serviceType);
+                for (final ServiceTypeEntry typeEntry : jmDNSImpl.getServiceTypes().values()) {
                     answers.add(new DNSRecord.Pointer("_services._dns-sd._udp.local.", DNSRecordClass.CLASS_IN, DNSRecordClass.NOT_UNIQUE, DNSConstants.DNS_TTL, typeEntry.getType()));
                 }
             } else if (this.isReverseLookup()) {
@@ -134,7 +133,7 @@ public class DNSQuestion extends DNSEntry {
             String loname = this.getName().toLowerCase();
             if (jmDNSImpl.getLocalHost().getName().equalsIgnoreCase(loname)) {
                 // type = DNSConstants.TYPE_A;
-                answers.addAll(jmDNSImpl.getLocalHost().answers(this.isUnique(), DNSConstants.DNS_TTL));
+                answers.addAll(jmDNSImpl.getLocalHost().answers(this.getRecordClass(), this.isUnique(), DNSConstants.DNS_TTL));
                 return;
             }
             // Service type request
@@ -150,7 +149,7 @@ public class DNSQuestion extends DNSEntry {
         @Override
         public boolean iAmTheOnlyOne(JmDNSImpl jmDNSImpl) {
             String name = this.getName().toLowerCase();
-            return jmDNSImpl.getLocalHost().getName().equals(name) || jmDNSImpl.getServices().keySet().contains(name);
+            return jmDNSImpl.getLocalHost().getName().equals(name) || jmDNSImpl.getServices().containsKey(name);
         }
 
     }
@@ -171,7 +170,7 @@ public class DNSQuestion extends DNSEntry {
         @Override
         public boolean iAmTheOnlyOne(JmDNSImpl jmDNSImpl) {
             String name = this.getName().toLowerCase();
-            return jmDNSImpl.getLocalHost().getName().equals(name) || jmDNSImpl.getServices().keySet().contains(name);
+            return jmDNSImpl.getLocalHost().getName().equals(name) || jmDNSImpl.getServices().containsKey(name);
         }
 
     }
@@ -195,7 +194,7 @@ public class DNSQuestion extends DNSEntry {
             String loname = this.getName().toLowerCase();
             if (jmDNSImpl.getLocalHost().getName().equalsIgnoreCase(loname)) {
                 // type = DNSConstants.TYPE_A;
-                answers.addAll(jmDNSImpl.getLocalHost().answers(this.isUnique(), DNSConstants.DNS_TTL));
+                answers.addAll(jmDNSImpl.getLocalHost().answers(this.getRecordClass(), this.isUnique(), DNSConstants.DNS_TTL));
                 return;
             }
             // Service type request
@@ -205,13 +204,15 @@ public class DNSQuestion extends DNSEntry {
                 return;
             }
 
-            this.addAnswersForServiceInfo(jmDNSImpl, answers, (ServiceInfoImpl) jmDNSImpl.getServices().get(loname));
+            for (ServiceInfo serviceInfo : jmDNSImpl.getServices().values()) {
+                this.addAnswersForServiceInfo(jmDNSImpl, answers, (ServiceInfoImpl) serviceInfo);
+            }
         }
 
         @Override
         public boolean iAmTheOnlyOne(JmDNSImpl jmDNSImpl) {
             String name = this.getName().toLowerCase();
-            return jmDNSImpl.getLocalHost().getName().equals(name) || jmDNSImpl.getServices().keySet().contains(name);
+            return jmDNSImpl.getLocalHost().getName().equals(name) || jmDNSImpl.getServices().containsKey(name);
         }
 
     }
@@ -222,7 +223,7 @@ public class DNSQuestion extends DNSEntry {
 
     /**
      * Create a question.
-     * 
+     *
      * @param name
      *            DNS name to be resolved
      * @param type
@@ -265,7 +266,7 @@ public class DNSQuestion extends DNSEntry {
 
     /**
      * Adds answers to the list for our question.
-     * 
+     *
      * @param jmDNSImpl
      *            DNS holding the records
      * @param answers
@@ -277,13 +278,11 @@ public class DNSQuestion extends DNSEntry {
 
     protected void addAnswersForServiceInfo(JmDNSImpl jmDNSImpl, Set<DNSRecord> answers, ServiceInfoImpl info) {
         if ((info != null) && info.isAnnounced()) {
-            if (this.getName().equalsIgnoreCase(info.getQualifiedName()) || this.getName().equalsIgnoreCase(info.getType())) {
-                answers.addAll(jmDNSImpl.getLocalHost().answers(DNSRecordClass.UNIQUE, DNSConstants.DNS_TTL));
-                answers.addAll(info.answers(DNSRecordClass.UNIQUE, DNSConstants.DNS_TTL, jmDNSImpl.getLocalHost()));
+            if (this.getName().equalsIgnoreCase(info.getQualifiedName()) || this.getName().equalsIgnoreCase(info.getType()) || this.getName().equalsIgnoreCase(info.getTypeWithSubtype())) {
+                answers.addAll(jmDNSImpl.getLocalHost().answers(this.getRecordClass(), DNSRecordClass.UNIQUE, DNSConstants.DNS_TTL));
+                answers.addAll(info.answers(this.getRecordClass(), DNSRecordClass.UNIQUE, DNSConstants.DNS_TTL, jmDNSImpl.getLocalHost()));
             }
-            if (logger.isLoggable(Level.FINER)) {
-                logger.finer(jmDNSImpl.getName() + " DNSQuestion(" + this.getName() + ").addAnswersForServiceInfo(): info: " + info + "\n" + answers);
-            }
+            logger.debug("{} DNSQuestion({}).addAnswersForServiceInfo(): info: {}\n{}", jmDNSImpl.getName(), this.getName(), info, answers);
         }
     }
 
@@ -307,7 +306,7 @@ public class DNSQuestion extends DNSEntry {
 
     /**
      * Checks if we are the only to be able to answer that question.
-     * 
+     *
      * @param jmDNSImpl
      *            DNS holding the records
      * @return <code>true</code> if we are the only one with the answer to the question, <code>false</code> otherwise.
@@ -321,7 +320,7 @@ public class DNSQuestion extends DNSEntry {
      * @see javax.jmdns.impl.DNSEntry#toString(java.lang.StringBuilder)
      */
     @Override
-    public void toString(StringBuilder aLog) {
+    public void toString(final StringBuilder sb) {
         // do nothing
     }
 

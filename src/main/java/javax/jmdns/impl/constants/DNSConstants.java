@@ -15,9 +15,9 @@ public final class DNSConstants {
     // changed to final class - jeffs
     public static final String MDNS_GROUP                     = "224.0.0.251";
     public static final String MDNS_GROUP_IPV6                = "FF02::FB";
-    public static final int    MDNS_PORT                      = Integer.parseInt(System.getProperty("net.mdns.port", "5353"));
+    public static final int    MDNS_PORT                      = Integer.getInteger("net.mdns.port", 5353);
     public static final int    DNS_PORT                       = 53;
-    public static final int    DNS_TTL                        = 60 * 60;                                                      // default one hour TTL
+    public static final int    DNS_TTL                        = Integer.getInteger("net.dns.ttl", 60 * 60);                   // default one hour TTL
     // public static final int DNS_TTL = 120 * 60; // two hour TTL (draft-cheshire-dnsext-multicastdns.txt ch 13)
 
     public static final int    MAX_MSG_TYPICAL                = 1460;
@@ -27,6 +27,7 @@ public final class DNSConstants {
     public static final int    FLAGS_QR_QUERY                 = 0x0000;                                                       // Query
     public static final int    FLAGS_QR_RESPONSE              = 0x8000;                                                       // Response
 
+    public static final int    FLAGS_OPCODE                   = 0x7800;                                                       // Operation code
     public static final int    FLAGS_AA                       = 0x0400;                                                       // Authorative answer
     public static final int    FLAGS_TC                       = 0x0200;                                                       // Truncated
     public static final int    FLAGS_RD                       = 0x0100;                                                       // Recursion desired
@@ -35,6 +36,7 @@ public final class DNSConstants {
     public static final int    FLAGS_Z                        = 0x0040;                                                       // Zero
     public static final int    FLAGS_AD                       = 0x0020;                                                       // Authentic data
     public static final int    FLAGS_CD                       = 0x0010;                                                       // Checking disabled
+    public static final int    FLAGS_RCODE                    = 0x000F;                                                       // Response code
 
     // Time Intervals for various functions
 
@@ -51,6 +53,9 @@ public final class DNSConstants {
     public static final int    RECORD_EXPIRY_DELAY            = 1;                                                            // This is 1s delay used in ttl and therefore in seconds
     public static final int    KNOWN_ANSWER_TTL               = 120;
     public static final int    ANNOUNCED_RENEWAL_TTL_INTERVAL = DNS_TTL * 500;                                                // 50% of the TTL in milliseconds
+
+    public static final int    STALE_REFRESH_INCREMENT           = 5;
+    public static final int    STALE_REFRESH_STARTING_PERCENTAGE = 80;
 
     public static final long   CLOSE_TIMEOUT                  = ANNOUNCE_WAIT_INTERVAL * 5L;
     public static final long   SERVICE_INFO_TIMEOUT           = ANNOUNCE_WAIT_INTERVAL * 6L;

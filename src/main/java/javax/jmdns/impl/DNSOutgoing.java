@@ -6,6 +6,7 @@ package javax.jmdns.impl;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -14,7 +15,7 @@ import javax.jmdns.impl.constants.DNSRecordClass;
 
 /**
  * An outgoing DNS message.
- * 
+ *
  * @author Arthur van Hoff, Rick Blair, Werner Randelshofer
  */
 public final class DNSOutgoing extends DNSMessage {
@@ -22,11 +23,11 @@ public final class DNSOutgoing extends DNSMessage {
     public static class MessageOutputStream extends ByteArrayOutputStream {
         private final DNSOutgoing _out;
 
-        private final int         _offset;
+        private final int _offset;
 
         /**
          * Creates a new message stream, with a buffer capacity of the specified size, in bytes.
-         * 
+         *
          * @param size
          *            the initial size.
          * @exception IllegalArgumentException
@@ -171,11 +172,11 @@ public final class DNSOutgoing extends DNSMessage {
     /**
      * This can be used to turn off domain name compression. This was helpful for tracking problems interacting with other mdns implementations.
      */
-    public static boolean             USE_DOMAIN_NAME_COMPRESSION = true;
+    public static boolean USE_DOMAIN_NAME_COMPRESSION = true;
 
-    Map<String, Integer>              _names;
+    Map<String, Integer> _names;
 
-    private int                       _maxUDPPayload;
+    private int _maxUDPPayload;
 
     private final MessageOutputStream _questionsBytes;
 
@@ -185,11 +186,13 @@ public final class DNSOutgoing extends DNSMessage {
 
     private final MessageOutputStream _additionalsAnswersBytes;
 
-    private final static int          HEADER_SIZE                 = 12;
+    private final static int HEADER_SIZE = 12;
+
+    private InetSocketAddress _destination;
 
     /**
      * Create an outgoing multicast query or response.
-     * 
+     *
      * @param flags
      */
     public DNSOutgoing(int flags) {
@@ -198,7 +201,7 @@ public final class DNSOutgoing extends DNSMessage {
 
     /**
      * Create an outgoing query or response.
-     * 
+     *
      * @param flags
      * @param multicast
      */
@@ -208,7 +211,7 @@ public final class DNSOutgoing extends DNSMessage {
 
     /**
      * Create an outgoing query or response.
-     * 
+     *
      * @param flags
      * @param multicast
      * @param senderUDPPayload
@@ -225,8 +228,27 @@ public final class DNSOutgoing extends DNSMessage {
     }
 
     /**
+     * Get the forced destination address if a specific one was set.
+     *
+     * @return a forced destination address or null if no address is forced.
+     */
+    public InetSocketAddress getDestination() {
+        return _destination;
+    }
+
+    /**
+     * Force a specific destination address if packet is sent.
+     *
+     * @param destination
+     *            Set a destination address a packet should be sent to (instead the default one). You could use null to unset the forced destination.
+     */
+    public void setDestination(InetSocketAddress destination) {
+        _destination = destination;
+    }
+
+    /**
      * Return the number of byte available in the message.
-     * 
+     *
      * @return available space
      */
     public int availableSpace() {
@@ -235,7 +257,7 @@ public final class DNSOutgoing extends DNSMessage {
 
     /**
      * Add a question to the message.
-     * 
+     *
      * @param rec
      * @exception IOException
      */
@@ -243,6 +265,7 @@ public final class DNSOutgoing extends DNSMessage {
         MessageOutputStream record = new MessageOutputStream(512, this);
         record.writeQuestion(rec);
         byte[] byteArray = record.toByteArray();
+        record.close();
         if (byteArray.length < this.availableSpace()) {
             _questions.add(rec);
             _questionsBytes.write(byteArray, 0, byteArray.length);
@@ -253,7 +276,7 @@ public final class DNSOutgoing extends DNSMessage {
 
     /**
      * Add an answer if it is not suppressed.
-     * 
+     *
      * @param in
      * @param rec
      * @exception IOException
@@ -266,7 +289,7 @@ public final class DNSOutgoing extends DNSMessage {
 
     /**
      * Add an answer to the message.
-     * 
+     *
      * @param rec
      * @param now
      * @exception IOException
@@ -277,6 +300,7 @@ public final class DNSOutgoing extends DNSMessage {
                 MessageOutputStream record = new MessageOutputStream(512, this);
                 record.writeRecord(rec, now);
                 byte[] byteArray = record.toByteArray();
+                record.close();
                 if (byteArray.length < this.availableSpace()) {
                     _answers.add(rec);
                     _answersBytes.write(byteArray, 0, byteArray.length);
@@ -289,7 +313,7 @@ public final class DNSOutgoing extends DNSMessage {
 
     /**
      * Add an authoritative answer to the message.
-     * 
+     *
      * @param rec
      * @exception IOException
      */
@@ -297,6 +321,7 @@ public final class DNSOutgoing extends DNSMessage {
         MessageOutputStream record = new MessageOutputStream(512, this);
         record.writeRecord(rec, 0);
         byte[] byteArray = record.toByteArray();
+        record.close();
         if (byteArray.length < this.availableSpace()) {
             _authoritativeAnswers.add(rec);
             _authoritativeAnswersBytes.write(byteArray, 0, byteArray.length);
@@ -307,7 +332,7 @@ public final class DNSOutgoing extends DNSMessage {
 
     /**
      * Add an additional answer to the record. Omit if there is no room.
-     * 
+     *
      * @param in
      * @param rec
      * @exception IOException
@@ -316,6 +341,7 @@ public final class DNSOutgoing extends DNSMessage {
         MessageOutputStream record = new MessageOutputStream(512, this);
         record.writeRecord(rec, 0);
         byte[] byteArray = record.toByteArray();
+        record.close();
         if (byteArray.length < this.availableSpace()) {
             _additionals.add(rec);
             _additionalsAnswersBytes.write(byteArray, 0, byteArray.length);
@@ -326,7 +352,7 @@ public final class DNSOutgoing extends DNSMessage {
 
     /**
      * Builds the final message buffer to be send and returns it.
-     * 
+     *
      * @return bytes to send.
      */
     public byte[] data() {
@@ -352,93 +378,92 @@ public final class DNSOutgoing extends DNSMessage {
         for (DNSRecord record : _additionals) {
             message.writeRecord(record, now);
         }
-        return message.toByteArray();
-    }
-
-    @Override
-    public boolean isQuery() {
-        return (this.getFlags() & DNSConstants.FLAGS_QR_MASK) == DNSConstants.FLAGS_QR_QUERY;
+        byte[] result = message.toByteArray();
+        try {
+            message.close();
+        } catch (IOException exception) {}
+        return result;
     }
 
     /**
      * Debugging.
      */
     String print(boolean dump) {
-        StringBuilder buf = new StringBuilder();
-        buf.append(this.print());
+        final StringBuilder sb = new StringBuilder();
+        sb.append(this.print());
         if (dump) {
-            buf.append(this.print(this.data()));
+            sb.append(this.print(this.data()));
         }
-        return buf.toString();
+        return sb.toString();
     }
 
     @Override
     public String toString() {
-        StringBuffer buf = new StringBuffer();
-        buf.append(isQuery() ? "dns[query:" : "dns[response:");
-        buf.append(" id=0x");
-        buf.append(Integer.toHexString(this.getId()));
+        final StringBuilder sb = new StringBuilder();
+        sb.append(isQuery() ? "dns[query:" : "dns[response:");
+        sb.append(" id=0x");
+        sb.append(Integer.toHexString(this.getId()));
         if (this.getFlags() != 0) {
-            buf.append(", flags=0x");
-            buf.append(Integer.toHexString(this.getFlags()));
-            if ((this.getFlags() & DNSConstants.FLAGS_QR_RESPONSE) != 0) {
-                buf.append(":r");
+            sb.append(", flags=0x");
+            sb.append(Integer.toHexString(this.getFlags()));
+            if (this.isResponse()) {
+                sb.append(":r");
             }
-            if ((this.getFlags() & DNSConstants.FLAGS_AA) != 0) {
-                buf.append(":aa");
+            if (this.isAuthoritativeAnswer()) {
+                sb.append(":aa");
             }
-            if ((this.getFlags() & DNSConstants.FLAGS_TC) != 0) {
-                buf.append(":tc");
+            if (this.isTruncated()) {
+                sb.append(":tc");
             }
         }
         if (this.getNumberOfQuestions() > 0) {
-            buf.append(", questions=");
-            buf.append(this.getNumberOfQuestions());
+            sb.append(", questions=");
+            sb.append(this.getNumberOfQuestions());
         }
         if (this.getNumberOfAnswers() > 0) {
-            buf.append(", answers=");
-            buf.append(this.getNumberOfAnswers());
+            sb.append(", answers=");
+            sb.append(this.getNumberOfAnswers());
         }
         if (this.getNumberOfAuthorities() > 0) {
-            buf.append(", authorities=");
-            buf.append(this.getNumberOfAuthorities());
+            sb.append(", authorities=");
+            sb.append(this.getNumberOfAuthorities());
         }
         if (this.getNumberOfAdditionals() > 0) {
-            buf.append(", additionals=");
-            buf.append(this.getNumberOfAdditionals());
+            sb.append(", additionals=");
+            sb.append(this.getNumberOfAdditionals());
         }
         if (this.getNumberOfQuestions() > 0) {
-            buf.append("\nquestions:");
+            sb.append("\nquestions:");
             for (DNSQuestion question : _questions) {
-                buf.append("\n\t");
-                buf.append(question);
+                sb.append("\n\t");
+                sb.append(question);
             }
         }
         if (this.getNumberOfAnswers() > 0) {
-            buf.append("\nanswers:");
+            sb.append("\nanswers:");
             for (DNSRecord record : _answers) {
-                buf.append("\n\t");
-                buf.append(record);
+                sb.append("\n\t");
+                sb.append(record);
             }
         }
         if (this.getNumberOfAuthorities() > 0) {
-            buf.append("\nauthorities:");
+            sb.append("\nauthorities:");
             for (DNSRecord record : _authoritativeAnswers) {
-                buf.append("\n\t");
-                buf.append(record);
+                sb.append("\n\t");
+                sb.append(record);
             }
         }
         if (this.getNumberOfAdditionals() > 0) {
-            buf.append("\nadditionals:");
+            sb.append("\nadditionals:");
             for (DNSRecord record : _additionals) {
-                buf.append("\n\t");
-                buf.append(record);
+                sb.append("\n\t");
+                sb.append(record);
             }
         }
-        buf.append("\nnames=");
-        buf.append(_names);
-        buf.append("]");
-        return buf.toString();
+        sb.append("\nnames=");
+        sb.append(_names);
+        sb.append("]");
+        return sb.toString();
     }
 
     /**

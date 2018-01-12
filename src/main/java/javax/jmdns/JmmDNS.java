@@ -19,7 +19,7 @@ import javax.jmdns.impl.JmmDNSImpl;
  * This class will monitor network topology changes, and will create or destroy JmDNS instances as required. It is your responsibility to maintain services registration (hint: use a {@link NetworkTopologyListener}).<br/>
  * Most of this class methods have no notion of transaction: if an Exception is raised in the middle of execution, you may be in an incoherent state.
  * <p>
- * <b>Note:</b> This API is experimental and may change in the future please let us know what work and what does not work in you application.
+ * <b>Note:</b> This API is experimental and may change in the future please let us know what work and what does not work in your application.
  * </p>
  *
  * @author C&eacute;drik Lime, Pierre Frisch
@@ -92,19 +92,29 @@ public interface JmmDNS extends Closeable {
         }
 
         /**
-         * Return the instance of the Multihommed Multicast DNS.
+         * Return the instance of the Multihomed Multicast DNS.
          *
          * @return the JmmDNS
          */
         public static JmmDNS getInstance() {
-            if (_instance == null) {
-                synchronized (Factory.class) {
-                    if (_instance == null) {
-                        _instance = JmmDNS.Factory.newJmmDNS();
-                    }
+            synchronized (Factory.class) {
+                if (_instance == null) {
+                    _instance = JmmDNS.Factory.newJmmDNS();
                 }
+                return _instance;
             }
-            return _instance;
+        }
+
+        /**
+         * Closes the instance if still running and discard it.
+         *
+         * @throws IOException
+         */
+        public static void close() throws IOException {
+            synchronized (Factory.class) {
+                _instance.close();
+                _instance = null;
+            }
         }
     }
 
@@ -129,9 +139,27 @@ public interface JmmDNS extends Closeable {
      *
      * @return list of Internet Address
      * @exception IOException
-     * @see javax.jmdns.JmDNS#getInterface()
+     * @see javax.jmdns.JmDNS#getInetAddress()
      */
+    public abstract InetAddress[] getInetAddresses() throws IOException;
+
+    /**
+     * Return the list of addresses of the interface to which this instance of JmmDNS is bound.
+     *
+     * @return list of Internet Address
+     * @exception IOException
+     * @see javax.jmdns.JmDNS#getInterface()
+     * @deprecated do not use this implementation yields unpredictable results use {@link #getInetAddresses()}
+     */
+    @Deprecated
     public abstract InetAddress[] getInterfaces() throws IOException;
+
+    /**
+     * Return a list of all the registered JmDNS instances
+     *
+     * @return list of JmDNS instances
+     */
+    public abstract JmDNS[] getDNS();
 
     /**
      * Get service information. If the information is not cached, the method will block until updated information is received on all DNS.

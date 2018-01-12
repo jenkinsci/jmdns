@@ -21,7 +21,7 @@ public class ServiceEventImpl extends ServiceEvent {
      *
      */
     private static final long serialVersionUID = 7107973622016897488L;
-    // private static Logger logger = Logger.getLogger(ServiceEvent.class.getName());
+    // private static Logger logger = LoggerFactory.getLogger(ServiceEvent.class.getName());
     /**
      * The type name of the service.
      */
@@ -87,19 +87,17 @@ public class ServiceEventImpl extends ServiceEvent {
      */
     @Override
     public String toString() {
-        StringBuilder buf = new StringBuilder();
-        buf.append("[" + this.getClass().getSimpleName() + "@" + System.identityHashCode(this) + " ");
-        buf.append("\n\tname: '");
-        buf.append(this.getName());
-        buf.append("' type: '");
-        buf.append(this.getType());
-        buf.append("' info: '");
-        buf.append(this.getInfo());
-        buf.append("']");
-        // buf.append("' source: ");
-        // buf.append("\n\t" + source + "");
-        // buf.append("\n]");
-        return buf.toString();
+        final StringBuilder sb = new StringBuilder();
+        sb.append('[')
+            .append(this.getClass().getSimpleName()).append('@').append(System.identityHashCode(this))
+            .append("\n\tname: '").append(this.getName())
+            .append("' type: '").append(this.getType())
+            .append("' info: '").append(this.getInfo())
+            .append("']");
+//            .append("' source: ")
+//            .append("\n\t" + source + "")
+//            .append("\n]");
+        return sb.toString();
     }
 
     /*

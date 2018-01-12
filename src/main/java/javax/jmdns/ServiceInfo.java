@@ -33,11 +33,6 @@ import javax.jmdns.impl.ServiceInfoImpl;
 public abstract class ServiceInfo implements Cloneable {
 
     /**
-     * This is the no value text byte. According top the specification it is one byte with 0 value.
-     */
-    public static final byte[] NO_VALUE = new byte[0];
-
-    /**
      * Fields for the fully qualified map.
      */
     public enum Fields {
@@ -709,6 +704,14 @@ public abstract class ServiceInfo implements Cloneable {
      * @return dictionary of the fully qualified name components
      */
     public abstract Map<Fields, String> getQualifiedNameMap();
+
+    /**
+     * Compare addresses of another ServiceInfo
+     *
+     * @param other ServiceInfo to compare
+     * @return true if addresses are the same, false if not
+     */
+    public abstract boolean hasSameAddresses(ServiceInfo other);
 
     /*
      * (non-Javadoc)

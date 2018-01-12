@@ -10,8 +10,8 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jmdns.impl.constants.DNSConstants;
 import javax.jmdns.impl.constants.DNSLabel;
@@ -22,18 +22,18 @@ import javax.jmdns.impl.constants.DNSResultCode;
 
 /**
  * Parse an incoming DNS message into its components.
- * 
+ *
  * @author Arthur van Hoff, Werner Randelshofer, Pierre Frisch, Daniel Bobbert
  */
 public final class DNSIncoming extends DNSMessage {
-    private static Logger logger                                = Logger.getLogger(DNSIncoming.class.getName());
+    private static Logger logger                                = LoggerFactory.getLogger(DNSIncoming.class.getName());
 
     // This is a hack to handle a bug in the BonjourConformanceTest
     // It is sending out target strings that don't follow the "domain name" format.
     public static boolean USE_DOMAIN_NAME_FORMAT_FOR_SRV_TARGET = true;
 
     public static class MessageInputStream extends ByteArrayInputStream {
-        private static Logger      logger1 = Logger.getLogger(MessageInputStream.class.getName());
+        private static Logger      logger1 = LoggerFactory.getLogger(MessageInputStream.class.getName());
 
         final Map<Integer, String> _names;
 
@@ -55,8 +55,12 @@ public final class DNSIncoming extends DNSMessage {
             return this.read();
         }
 
+        public int readUnsignedByte() {
+            return (this.read() & 0xFF);
+        }
+
         public int readUnsignedShort() {
-            return (this.read() << 8) | this.read();
+            return (this.readUnsignedByte() << 8) | this.readUnsignedByte();
         }
 
         public int readInt() {
@@ -70,9 +74,9 @@ public final class DNSIncoming extends DNSMessage {
         }
 
         public String readUTF(int len) {
-            StringBuilder buffer = new StringBuilder(len);
+            final StringBuilder sb = new StringBuilder(len);
             for (int index = 0; index < len; index++) {
-                int ch = this.read();
+                int ch = this.readUnsignedByte();
                 switch (ch >> 4) {
                     case 0:
                     case 1:
@@ -87,24 +91,24 @@ public final class DNSIncoming extends DNSMessage {
                     case 12:
                     case 13:
                         // 110x xxxx 10xx xxxx
-                        ch = ((ch & 0x1F) << 6) | (this.read() & 0x3F);
+                        ch = ((ch & 0x1F) << 6) | (this.readUnsignedByte() & 0x3F);
                         index++;
                         break;
                     case 14:
                         // 1110 xxxx 10xx xxxx 10xx xxxx
-                        ch = ((ch & 0x0f) << 12) | ((this.read() & 0x3F) << 6) | (this.read() & 0x3F);
+                        ch = ((ch & 0x0f) << 12) | ((this.readUnsignedByte() & 0x3F) << 6) | (this.readUnsignedByte() & 0x3F);
                         index++;
                         index++;
                         break;
                     default:
                         // 10xx xxxx, 1111 xxxx
-                        ch = ((ch & 0x3F) << 4) | (this.read() & 0x0f);
+                        ch = ((ch & 0x3F) << 4) | (this.readUnsignedByte() & 0x0f);
                         index++;
                         break;
                 }
-                buffer.append((char) ch);
+                sb.append((char) ch);
             }
-            return buffer.toString();
+            return sb.toString();
         }
 
         protected synchronized int peek() {
@@ -113,10 +117,10 @@ public final class DNSIncoming extends DNSMessage {
 
         public String readName() {
             Map<Integer, StringBuilder> names = new HashMap<Integer, StringBuilder>();
-            StringBuilder buffer = new StringBuilder();
+            final StringBuilder sb = new StringBuilder();
             boolean finished = false;
             while (!finished) {
-                int len = this.read();
+                int len = this.readUnsignedByte();
                 if (len == 0) {
                     finished = true;
                     break;
@@ -125,20 +129,23 @@ public final class DNSIncoming extends DNSMessage {
                     case Standard:
                         int offset = pos - 1;
                         String label = this.readUTF(len) + ".";
-                        buffer.append(label);
+                        sb.append(label);
                         for (StringBuilder previousLabel : names.values()) {
                             previousLabel.append(label);
                         }
                         names.put(Integer.valueOf(offset), new StringBuilder(label));
                         break;
                     case Compressed:
-                        int index = (DNSLabel.labelValue(len) << 8) | this.read();
+                        int index = (DNSLabel.labelValue(len) << 8) | this.readUnsignedByte();
                         String compressedLabel = _names.get(Integer.valueOf(index));
                         if (compressedLabel == null) {
-                            logger1.severe("bad domain name: possible circular name detected. Bad offset: 0x" + Integer.toHexString(index) + " at 0x" + Integer.toHexString(pos - 2));
+                            logger1.warn("Bad domain name: possible circular name detected. Bad offset: 0x{} at 0x{}",
+                                    Integer.toHexString(index),
+                                    Integer.toHexString(pos - 2)
+                                    );
                             compressedLabel = "";
                         }
-                        buffer.append(compressedLabel);
+                        sb.append(compressedLabel);
                         for (StringBuilder previousLabel : names.values()) {
                             previousLabel.append(compressedLabel);
                         }
@@ -146,21 +153,22 @@ public final class DNSIncoming extends DNSMessage {
                         break;
                     case Extended:
                         // int extendedLabelClass = DNSLabel.labelValue(len);
-                        logger1.severe("Extended label are not currently supported.");
+                        logger1.debug("Extended label are not currently supported.");
                         break;
                     case Unknown:
                     default:
-                        logger1.severe("unsupported dns label type: '" + Integer.toHexString(len & 0xC0) + "'");
+                        logger1.warn("Unsupported DNS label type: '{}'", Integer.toHexString(len & 0xC0) );
                 }
             }
-            for (Integer index : names.keySet()) {
-                _names.put(index, names.get(index).toString());
+            for (final Map.Entry<Integer, StringBuilder> entry : names.entrySet()) {
+                final Integer index = entry.getKey();
+                _names.put(index, entry.getValue().toString());
             }
-            return buffer.toString();
+            return sb.toString();
         }
 
         public String readNonNameString() {
-            int len = this.read();
+            int len = this.readUnsignedByte();
             return this.readUTF(len);
         }
 
@@ -176,7 +184,7 @@ public final class DNSIncoming extends DNSMessage {
 
     /**
      * Parse a message from a datagram packet.
-     * 
+     *
      * @param packet
      * @exception IOException
      */
@@ -191,10 +199,27 @@ public final class DNSIncoming extends DNSMessage {
         try {
             this.setId(_messageInputStream.readUnsignedShort());
             this.setFlags(_messageInputStream.readUnsignedShort());
+            if (this.getOperationCode() > 0) {
+                throw new IOException("Received a message with a non standard operation code. Currently unsupported in the specification.");
+            }
             int numQuestions = _messageInputStream.readUnsignedShort();
             int numAnswers = _messageInputStream.readUnsignedShort();
             int numAuthorities = _messageInputStream.readUnsignedShort();
             int numAdditionals = _messageInputStream.readUnsignedShort();
+
+            logger.debug("DNSIncoming() questions:{} answers:{} authorities:{} additionals:{}",
+                    numQuestions,
+                    numAnswers,
+                    numAuthorities,
+                    numAdditionals
+            );
+
+            // We need some sanity checks
+            // A question is at least 5 bytes and answer 11 so check what we have
+
+            if ((numQuestions * 5 + (numAnswers + numAuthorities + numAdditionals) * 11) > packet.getLength()) {
+                throw new IOException("questions:" + numQuestions + " answers:" + numAnswers + " authorities:" + numAuthorities + " additionals:" + numAdditionals);
+            }
 
             // parse questions
             if (numQuestions > 0) {
@@ -233,8 +258,12 @@ public final class DNSIncoming extends DNSMessage {
                     }
                 }
             }
+            // We should have drained the entire stream by now
+            if (_messageInputStream.available() > 0) {
+                throw new IOException("Received a message with the wrong length.");
+            }
         } catch (Exception e) {
-            logger.log(Level.WARNING, "DNSIncoming() dump " + print(true) + "\n exception ", e);
+            logger.warn("DNSIncoming() dump " + print(true) + "\n exception ", e);
             // This ugly but some JVM don't implement the cause on IOException
             IOException ioe = new IOException("DNSIncoming corrupted message");
             ioe.initCause(e);
@@ -242,11 +271,33 @@ public final class DNSIncoming extends DNSMessage {
         }
     }
 
+    private DNSIncoming(int flags, int id, boolean multicast, DatagramPacket packet, long receivedTime) {
+        super(flags, id, multicast);
+        this._packet = packet;
+        this._messageInputStream = new MessageInputStream(packet.getData(), packet.getLength());
+        this._receivedTime = receivedTime;
+    }
+
+    /*
+     * (non-Javadoc)
+     * @see java.lang.Object#clone()
+     */
+    @Override
+    public DNSIncoming clone() {
+        DNSIncoming in = new DNSIncoming(this.getFlags(), this.getId(), this.isMulticast(), this._packet, this._receivedTime);
+        in._senderUDPPayload = this._senderUDPPayload;
+        in._questions.addAll(this._questions);
+        in._answers.addAll(this._answers);
+        in._authoritativeAnswers.addAll(this._authoritativeAnswers);
+        in._additionals.addAll(this._additionals);
+        return in;
+    }
+
     private DNSQuestion readQuestion() {
         String domain = _messageInputStream.readName();
         DNSRecordType type = DNSRecordType.typeForIndex(_messageInputStream.readUnsignedShort());
         if (type == DNSRecordType.TYPE_IGNORE) {
-            logger.log(Level.SEVERE, "Could not find record type: " + this.print(true));
+            logger.warn("Could not find record type: {}", this.print(true));
         }
         int recordClassIndex = _messageInputStream.readUnsignedShort();
         DNSRecordClass recordClass = DNSRecordClass.classForIndex(recordClassIndex);
@@ -258,12 +309,12 @@ public final class DNSIncoming extends DNSMessage {
         String domain = _messageInputStream.readName();
         DNSRecordType type = DNSRecordType.typeForIndex(_messageInputStream.readUnsignedShort());
         if (type == DNSRecordType.TYPE_IGNORE) {
-            logger.log(Level.SEVERE, "Could not find record type. domain: " + domain + "\n" + this.print(true));
+            logger.warn("Could not find record type. domain: {}\n{}", domain, this.print(true));
         }
         int recordClassIndex = _messageInputStream.readUnsignedShort();
         DNSRecordClass recordClass = (type == DNSRecordType.TYPE_OPT ? DNSRecordClass.CLASS_UNKNOWN : DNSRecordClass.classForIndex(recordClassIndex));
         if ((recordClass == DNSRecordClass.CLASS_UNKNOWN) && (type != DNSRecordType.TYPE_OPT)) {
-            logger.log(Level.SEVERE, "Could not find record class. domain: " + domain + " type: " + type + "\n" + this.print(true));
+            logger.warn("Could not find record class. domain: {} type: {}\n{}", domain, type, this.print(true));
         }
         boolean unique = recordClass.isUnique(recordClassIndex);
         int ttl = _messageInputStream.readInt();
@@ -284,7 +335,7 @@ public final class DNSIncoming extends DNSMessage {
                 if (service.length() > 0) {
                     rec = new DNSRecord.Pointer(domain, recordClass, unique, ttl, service);
                 } else {
-                    logger.log(Level.WARNING, "There was a problem reading the service name of the answer for domain:" + domain);
+                    logger.warn("PTR record of class: {}, there was a problem reading the service name of the answer for domain: {}", recordClass, domain);
                 }
                 break;
             case TYPE_TXT:
@@ -306,11 +357,11 @@ public final class DNSIncoming extends DNSMessage {
                 rec = new DNSRecord.Service(domain, recordClass, unique, ttl, priority, weight, port, target);
                 break;
             case TYPE_HINFO:
-                StringBuilder buf = new StringBuilder();
-                buf.append(_messageInputStream.readUTF(len));
-                int index = buf.indexOf(" ");
-                String cpu = (index > 0 ? buf.substring(0, index) : buf.toString()).trim();
-                String os = (index > 0 ? buf.substring(index + 1) : "").trim();
+                final StringBuilder sb = new StringBuilder();
+                sb.append(_messageInputStream.readUTF(len));
+                int index = sb.indexOf(" ");
+                String cpu = (index > 0 ? sb.substring(0, index) : sb.toString()).trim();
+                String os = (index > 0 ? sb.substring(index + 1) : "").trim();
                 rec = new DNSRecord.HostInformation(domain, recordClass, unique, ttl, cpu, os);
                 break;
             case TYPE_OPT:
@@ -326,14 +377,14 @@ public final class DNSIncoming extends DNSMessage {
                             optionCodeInt = _messageInputStream.readUnsignedShort();
                             optionCode = DNSOptionCode.resultCodeForFlags(optionCodeInt);
                         } else {
-                            logger.log(Level.WARNING, "There was a problem reading the OPT record. Ignoring.");
+                            logger.warn("There was a problem reading the OPT record. Ignoring.");
                             break;
                         }
                         int optionLength = 0;
                         if (_messageInputStream.available() >= 2) {
                             optionLength = _messageInputStream.readUnsignedShort();
                         } else {
-                            logger.log(Level.WARNING, "There was a problem reading the OPT record. Ignoring.");
+                            logger.warn("There was a problem reading the OPT record. Ignoring.");
                             break;
                         }
                         byte[] optiondata = new byte[0];
@@ -372,22 +423,34 @@ public final class DNSIncoming extends DNSMessage {
                                         ownerPassword = new byte[] { optiondata[14], optiondata[15], optiondata[16], optiondata[17], optiondata[18], optiondata[19], optiondata[20], optiondata[21] };
                                     }
                                 } catch (Exception exception) {
-                                    logger.warning("Malformed OPT answer. Option code: Owner data: " + this._hexString(optiondata));
+                                    logger.warn("Malformed OPT answer. Option code: Owner data: {}", this._hexString(optiondata));
                                 }
-                                if (logger.isLoggable(Level.FINE)) {
-                                    logger.fine("Unhandled Owner OPT version: " + ownerVersion + " sequence: " + ownerSequence + " MAC address: " + this._hexString(ownerPrimaryMacAddress)
-                                            + (ownerWakeupMacAddress != ownerPrimaryMacAddress ? " wakeup MAC address: " + this._hexString(ownerWakeupMacAddress) : "") + (ownerPassword != null ? " password: " + this._hexString(ownerPassword) : ""));
+                                if (logger.isDebugEnabled()) {
+                                    logger.debug("Unhandled Owner OPT version: {} sequence: {} MAC address: {} {}{} {}{}",
+                                            ownerVersion,
+                                            ownerSequence,
+                                            this._hexString(ownerPrimaryMacAddress),
+                                            (ownerWakeupMacAddress != ownerPrimaryMacAddress ? " wakeup MAC address: " : ""),
+                                            (ownerWakeupMacAddress != ownerPrimaryMacAddress ? this._hexString(ownerWakeupMacAddress) : ""),
+                                            (ownerPassword != null ? " password: ": ""),
+                                            (ownerPassword != null ? this._hexString(ownerPassword) : "")
+                                    );
                                 }
                                 break;
                             case LLQ:
                             case NSID:
                             case UL:
-                                if (logger.isLoggable(Level.FINE)) {
-                                    logger.log(Level.FINE, "There was an OPT answer. Option code: " + optionCode + " data: " + this._hexString(optiondata));
+                                if (logger.isDebugEnabled()) {
+                                    logger.debug("There was an OPT answer. Option code: {} data: {}", optionCode, this._hexString(optiondata));
                                 }
                                 break;
                             case Unknown:
-                                logger.log(Level.WARNING, "There was an OPT answer. Not currently handled. Option code: " + optionCodeInt + " data: " + this._hexString(optiondata));
+                                if (optionCodeInt >= 65001 && optionCodeInt <= 65534) {
+                                     // RFC 6891 defines this range as used for experimental/local purposes.
+                                    logger.debug("There was an OPT answer using an experimental/local option code: {} data: {}", optionCodeInt, this._hexString(optiondata));
+                                } else {
+                                    logger.warn("There was an OPT answer. Not currently handled. Option code: {} data: {}", optionCodeInt, this._hexString(optiondata));
+                                }
                                 break;
                             default:
                                 // This is to keep the compiler happy.
@@ -395,13 +458,11 @@ public final class DNSIncoming extends DNSMessage {
                         }
                     }
                 } else {
-                    logger.log(Level.WARNING, "There was an OPT answer. Wrong version number: " + version + " result code: " + extendedResultCode);
+                    logger.warn("There was an OPT answer. Wrong version number: {} result code: {}", version, extendedResultCode);
                 }
                 break;
             default:
-                if (logger.isLoggable(Level.FINER)) {
-                    logger.finer("DNSIncoming() unknown type:" + type);
-                }
+                    logger.debug("DNSIncoming() unknown type: {}", type);
                 _messageInputStream.skip(len);
                 break;
         }
@@ -415,93 +476,94 @@ public final class DNSIncoming extends DNSMessage {
      * Debugging.
      */
     String print(boolean dump) {
-        StringBuilder buf = new StringBuilder();
-        buf.append(this.print());
+        final StringBuilder sb = new StringBuilder();
+        sb.append(this.print());
         if (dump) {
             byte[] data = new byte[_packet.getLength()];
             System.arraycopy(_packet.getData(), 0, data, 0, data.length);
-            buf.append(this.print(data));
+            sb.append(this.print(data));
         }
-        return buf.toString();
+        return sb.toString();
     }
 
     @Override
     public String toString() {
-        StringBuilder buf = new StringBuilder();
-        buf.append(isQuery() ? "dns[query," : "dns[response,");
+        final StringBuilder sb = new StringBuilder();
+        sb.append(isQuery() ? "dns[query," : "dns[response,");
         if (_packet.getAddress() != null) {
-            buf.append(_packet.getAddress().getHostAddress());
+            sb.append(_packet.getAddress().getHostAddress());
         }
-        buf.append(':');
-        buf.append(_packet.getPort());
-        buf.append(", length=");
-        buf.append(_packet.getLength());
-        buf.append(", id=0x");
-        buf.append(Integer.toHexString(this.getId()));
+        sb.append(':');
+        sb.append(_packet.getPort());
+        sb.append(", length=");
+        sb.append(_packet.getLength());
+        sb.append(", id=0x");
+        sb.append(Integer.toHexString(this.getId()));
         if (this.getFlags() != 0) {
-            buf.append(", flags=0x");
-            buf.append(Integer.toHexString(this.getFlags()));
+            sb.append(", flags=0x");
+            sb.append(Integer.toHexString(this.getFlags()));
             if ((this.getFlags() & DNSConstants.FLAGS_QR_RESPONSE) != 0) {
-                buf.append(":r");
+                sb.append(":r");
             }
             if ((this.getFlags() & DNSConstants.FLAGS_AA) != 0) {
-                buf.append(":aa");
+                sb.append(":aa");
             }
             if ((this.getFlags() & DNSConstants.FLAGS_TC) != 0) {
-                buf.append(":tc");
+                sb.append(":tc");
             }
         }
         if (this.getNumberOfQuestions() > 0) {
-            buf.append(", questions=");
-            buf.append(this.getNumberOfQuestions());
+            sb.append(", questions=");
+            sb.append(this.getNumberOfQuestions());
         }
         if (this.getNumberOfAnswers() > 0) {
-            buf.append(", answers=");
-            buf.append(this.getNumberOfAnswers());
+            sb.append(", answers=");
+            sb.append(this.getNumberOfAnswers());
         }
         if (this.getNumberOfAuthorities() > 0) {
-            buf.append(", authorities=");
-            buf.append(this.getNumberOfAuthorities());
+            sb.append(", authorities=");
+            sb.append(this.getNumberOfAuthorities());
         }
         if (this.getNumberOfAdditionals() > 0) {
-            buf.append(", additionals=");
-            buf.append(this.getNumberOfAdditionals());
+            sb.append(", additionals=");
+            sb.append(this.getNumberOfAdditionals());
         }
         if (this.getNumberOfQuestions() > 0) {
-            buf.append("\nquestions:");
+            sb.append("\nquestions:");
             for (DNSQuestion question : _questions) {
-                buf.append("\n\t");
-                buf.append(question);
+                sb.append("\n\t");
+                sb.append(question);
             }
         }
         if (this.getNumberOfAnswers() > 0) {
-            buf.append("\nanswers:");
+            sb.append("\nanswers:");
             for (DNSRecord record : _answers) {
-                buf.append("\n\t");
-                buf.append(record);
+                sb.append("\n\t");
+                sb.append(record);
             }
         }
         if (this.getNumberOfAuthorities() > 0) {
-            buf.append("\nauthorities:");
+            sb.append("\nauthorities:");
             for (DNSRecord record : _authoritativeAnswers) {
-                buf.append("\n\t");
-                buf.append(record);
+                sb.append("\n\t");
+                sb.append(record);
             }
         }
         if (this.getNumberOfAdditionals() > 0) {
-            buf.append("\nadditionals:");
+            sb.append("\nadditionals:");
             for (DNSRecord record : _additionals) {
-                buf.append("\n\t");
-                buf.append(record);
+                sb.append("\n\t");
+                sb.append(record);
             }
         }
-        buf.append("]");
-        return buf.toString();
+        sb.append(']');
+
+        return sb.toString();
     }
 
     /**
      * Appends answers to this Incoming.
-     * 
+     *
      * @exception IllegalArgumentException
      *                If not a query or if Truncated.
      */
@@ -522,7 +584,7 @@ public final class DNSIncoming extends DNSMessage {
 
     /**
      * This will return the default UDP payload except if an OPT record was found with a different size.
-     * 
+     *
      * @return the senderUDPPayload
      */
     public int getSenderUDPPayload() {
@@ -533,13 +595,13 @@ public final class DNSIncoming extends DNSMessage {
 
     /**
      * Returns a hex-string for printing
-     * 
+     *
      * @param bytes
      * @return Returns a hex-string which can be used within a SQL expression
      */
     private String _hexString(byte[] bytes) {
 
-        StringBuilder result = new StringBuilder(2 * bytes.length);
+        final StringBuilder result = new StringBuilder(2 * bytes.length);
 
         for (int i = 0; i < bytes.length; i++) {
             int b = bytes[i] & 0xFF;

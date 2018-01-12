@@ -6,7 +6,6 @@ package javax.jmdns.impl.tasks.state;
 
 import java.io.IOException;
 import java.util.Timer;
-import java.util.logging.Logger;
 
 import javax.jmdns.impl.DNSOutgoing;
 import javax.jmdns.impl.DNSQuestion;
@@ -25,7 +24,6 @@ import javax.jmdns.impl.constants.DNSState;
  * If a conflict during probes occurs, the affected service infos (and affected host name) are taken away from the prober. This eventually causes the prober to cancel itself.
  */
 public class Prober extends DNSStateTask {
-    static Logger logger = Logger.getLogger(Prober.class.getName());
 
     public Prober(JmDNSImpl jmDNSImpl) {
         super(jmDNSImpl, defaultTTL());
@@ -115,7 +113,7 @@ public class Prober extends DNSStateTask {
     protected DNSOutgoing buildOutgoingForDNS(DNSOutgoing out) throws IOException {
         DNSOutgoing newOut = out;
         newOut.addQuestion(DNSQuestion.newQuestion(this.getDns().getLocalHost().getName(), DNSRecordType.TYPE_ANY, DNSRecordClass.CLASS_IN, DNSRecordClass.NOT_UNIQUE));
-        for (DNSRecord answer : this.getDns().getLocalHost().answers(DNSRecordClass.NOT_UNIQUE, this.getTTL())) {
+        for (DNSRecord answer : this.getDns().getLocalHost().answers(DNSRecordClass.CLASS_ANY, DNSRecordClass.NOT_UNIQUE, this.getTTL())) {
             newOut = this.addAuthoritativeAnswer(newOut, answer);
         }
         return newOut;

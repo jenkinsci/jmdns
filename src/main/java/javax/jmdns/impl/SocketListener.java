@@ -6,8 +6,8 @@ package javax.jmdns.impl;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jmdns.impl.constants.DNSConstants;
 
@@ -15,7 +15,7 @@ import javax.jmdns.impl.constants.DNSConstants;
  * Listen for multicast packets.
  */
 class SocketListener extends Thread {
-    static Logger           logger = Logger.getLogger(SocketListener.class.getName());
+    static Logger           logger = LoggerFactory.getLogger(SocketListener.class.getName());
 
     /**
      *
@@ -48,39 +48,34 @@ class SocketListener extends Thread {
                     }
 
                     DNSIncoming msg = new DNSIncoming(packet);
-                    if (logger.isLoggable(Level.FINEST)) {
-                        logger.finest(this.getName() + ".run() JmDNS in:" + msg.print(true));
-                    }
-                    if (msg.isQuery()) {
-                        if (packet.getPort() != DNSConstants.MDNS_PORT) {
-                            this._jmDNSImpl.handleQuery(msg, packet.getAddress(), packet.getPort());
+                    if (msg.isValidResponseCode()) {
+                        if (logger.isTraceEnabled()) {
+                            logger.trace( "{}.run() JmDNS in:{}", this.getName(), msg.print(true));
                         }
-                        this._jmDNSImpl.handleQuery(msg, this._jmDNSImpl.getGroup(), DNSConstants.MDNS_PORT);
+                        if (msg.isQuery()) {
+                            if (packet.getPort() != DNSConstants.MDNS_PORT) {
+                                this._jmDNSImpl.handleQuery(msg, packet.getAddress(), packet.getPort());
+                            }
+                            this._jmDNSImpl.handleQuery(msg, this._jmDNSImpl.getGroup(), DNSConstants.MDNS_PORT);
+                        } else {
+                            this._jmDNSImpl.handleResponse(msg);
+                        }
                     } else {
-                        this._jmDNSImpl.handleResponse(msg);
+                        if (logger.isDebugEnabled()) {
+                            logger.debug("{}.run() JmDNS in message with error code: {}", this.getName(), msg.print(true));
+                        }
                     }
                 } catch (IOException e) {
-                    logger.log(Level.WARNING, this.getName() + ".run() exception ", e);
+                    logger.warn(this.getName() + ".run() exception ", e);
                 }
             }
         } catch (IOException e) {
             if (!this._jmDNSImpl.isCanceling() && !this._jmDNSImpl.isCanceled() && !this._jmDNSImpl.isClosing() && !this._jmDNSImpl.isClosed()) {
-                logger.log(Level.WARNING, this.getName() + ".run() exception ", e);
+                logger.warn(this.getName() + ".run() exception ", e);
                 this._jmDNSImpl.recover();
             }
         }
-        // jP: 20010-01-18. Per issue #2933183. If this thread was stopped
-        // by closeMulticastSocket, we need to signal the other party via
-        // the jmDNS monitor. The other guy will then check to see if this
-        // thread has died.
-        // Note: This is placed here to avoid locking the IoLock object and
-        // 'this' instance together.
-        if (logger.isLoggable(Level.FINEST)) {
-            logger.finest(this.getName() + ".run() exiting.");
-        }
-        synchronized (this._jmDNSImpl) {
-            this._jmDNSImpl.notifyAll();
-        }
+        logger.trace("{}.run() exiting.", this.getName() );
     }
 
     public JmDNSImpl getDns() {

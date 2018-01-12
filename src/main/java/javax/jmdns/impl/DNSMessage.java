@@ -13,7 +13,7 @@ import javax.jmdns.impl.constants.DNSConstants;
 
 /**
  * DNSMessage define a DNS message either incoming or outgoing.
- * 
+ *
  * @author Werner Randelshofer, Rick Blair, Pierre Frisch
  */
 public abstract class DNSMessage {
@@ -131,7 +131,7 @@ public abstract class DNSMessage {
         return this.getQuestions().size();
     }
 
-    public Collection<? extends DNSRecord> getAllAnswers() {
+    public List<DNSRecord> getAllAnswers() {
         List<DNSRecord> aList = new ArrayList<DNSRecord>(_answers.size() + _authoritativeAnswers.size() + _additionals.size());
         aList.addAll(_answers);
         aList.addAll(_authoritativeAnswers);
@@ -182,8 +182,27 @@ public abstract class DNSMessage {
     }
 
     /**
+     * Check is the response code is valid<br/>
+     * The only valid value is zero all other values signify an error and the message must be ignored.
+     *
+     * @return true if the message has a valid response code.
+     */
+    public boolean isValidResponseCode() {
+        return (_flags & DNSConstants.FLAGS_RCODE) == 0;
+    }
+
+    /**
+     * Returns the operation code value. Currently only standard query 0 is valid.
+     *
+     * @return The operation code value.
+     */
+    public int getOperationCode() {
+        return (_flags & DNSConstants.FLAGS_OPCODE) >> 11;
+    }
+
+    /**
      * Check if the message is truncated.
-     * 
+     *
      * @return true if the message was truncated
      */
     public boolean isTruncated() {
@@ -191,8 +210,17 @@ public abstract class DNSMessage {
     }
 
     /**
+     * Check if the message is an authoritative answer.
+     *
+     * @return true if the message is an authoritative answer
+     */
+    public boolean isAuthoritativeAnswer() {
+        return (_flags & DNSConstants.FLAGS_AA) != 0;
+    }
+
+    /**
      * Check if the message is a query.
-     * 
+     *
      * @return true is the message is a query
      */
     public boolean isQuery() {
@@ -201,7 +229,7 @@ public abstract class DNSMessage {
 
     /**
      * Check if the message is a response.
-     * 
+     *
      * @return true is the message is a response
      */
     public boolean isResponse() {
@@ -210,7 +238,7 @@ public abstract class DNSMessage {
 
     /**
      * Check if the message is empty
-     * 
+     *
      * @return true is the message is empty
      */
     public boolean isEmpty() {
@@ -221,87 +249,87 @@ public abstract class DNSMessage {
      * Debugging.
      */
     String print() {
-        StringBuffer buf = new StringBuffer(200);
-        buf.append(this.toString());
-        buf.append("\n");
-        for (DNSQuestion question : _questions) {
-            buf.append("\tquestion:      ");
-            buf.append(question);
-            buf.append("\n");
+        final StringBuilder sb = new StringBuilder(200);
+        sb.append(this.toString());
+        sb.append("\n");
+        for (final DNSQuestion question : _questions) {
+            sb.append("\tquestion:      ");
+            sb.append(question);
+            sb.append("\n");
         }
-        for (DNSRecord answer : _answers) {
-            buf.append("\tanswer:        ");
-            buf.append(answer);
-            buf.append("\n");
+        for (final DNSRecord answer : _answers) {
+            sb.append("\tanswer:        ");
+            sb.append(answer);
+            sb.append("\n");
         }
-        for (DNSRecord answer : _authoritativeAnswers) {
-            buf.append("\tauthoritative: ");
-            buf.append(answer);
-            buf.append("\n");
+        for (final DNSRecord answer : _authoritativeAnswers) {
+            sb.append("\tauthoritative: ");
+            sb.append(answer);
+            sb.append("\n");
         }
         for (DNSRecord answer : _additionals) {
-            buf.append("\tadditional:    ");
-            buf.append(answer);
-            buf.append("\n");
+            sb.append("\tadditional:    ");
+            sb.append(answer);
+            sb.append("\n");
         }
-        return buf.toString();
+        return sb.toString();
     }
 
     /**
      * Debugging.
-     * 
+     *
      * @param data
      * @return data dump
      */
     protected String print(byte[] data) {
-        StringBuilder buf = new StringBuilder(4000);
+        final StringBuilder sb = new StringBuilder(4000);
         for (int off = 0, len = data.length; off < len; off += 32) {
             int n = Math.min(32, len - off);
             if (off < 0x10) {
-                buf.append(' ');
+                sb.append(' ');
             }
             if (off < 0x100) {
-                buf.append(' ');
+                sb.append(' ');
             }
             if (off < 0x1000) {
-                buf.append(' ');
+                sb.append(' ');
             }
-            buf.append(Integer.toHexString(off));
-            buf.append(':');
+            sb.append(Integer.toHexString(off));
+            sb.append(':');
             int index = 0;
             for (index = 0; index < n; index++) {
                 if ((index % 8) == 0) {
-                    buf.append(' ');
+                    sb.append(' ');
                 }
-                buf.append(Integer.toHexString((data[off + index] & 0xF0) >> 4));
-                buf.append(Integer.toHexString((data[off + index] & 0x0F) >> 0));
+                sb.append(Integer.toHexString((data[off + index] & 0xF0) >> 4));
+                sb.append(Integer.toHexString((data[off + index] & 0x0F) >> 0));
             }
             // for incomplete lines
             if (index < 32) {
                 for (int i = index; i < 32; i++) {
                     if ((i % 8) == 0) {
-                        buf.append(' ');
+                        sb.append(' ');
                     }
-                    buf.append("  ");
+                    sb.append("  ");
                 }
             }
-            buf.append("    ");
+            sb.append("    ");
             for (index = 0; index < n; index++) {
                 if ((index % 8) == 0) {
-                    buf.append(' ');
+                    sb.append(' ');
                 }
                 int ch = data[off + index] & 0xFF;
-                buf.append(((ch > ' ') && (ch < 127)) ? (char) ch : '.');
+                sb.append(((ch > ' ') && (ch < 127)) ? (char) ch : '.');
             }
-            buf.append("\n");
+            sb.append("\n");
 
             // limit message size
             if (off + 32 >= 2048) {
-                buf.append("....\n");
+                sb.append("....\n");
                 break;
             }
         }
-        return buf.toString();
+        return sb.toString();
     }
 
 }

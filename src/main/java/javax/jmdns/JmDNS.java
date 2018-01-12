@@ -6,9 +6,11 @@ package javax.jmdns;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.InetAddress;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Properties;
 
 import javax.jmdns.impl.JmDNSImpl;
 
@@ -39,7 +41,23 @@ public abstract class JmDNS implements Closeable {
     /**
      * The version of JmDNS.
      */
-    public static final String VERSION = "3.4.0";
+    public static String VERSION;
+
+    static {
+        try {
+            InputStream inputStream = JmDNS.class.getClassLoader().getResourceAsStream("version.properties");
+            try {
+                Properties properties = new Properties();
+                properties.load(inputStream);
+                VERSION = properties.getProperty("jmdns.version");
+            } finally {
+                inputStream.close();
+            }
+        } catch (Exception ignored) {
+            VERSION = "VERSION MISSING";
+        }
+
+    }
 
     /**
      * <p>
@@ -158,6 +176,17 @@ public abstract class JmDNS implements Closeable {
      * @exception IOException
      *                if there is an error in the underlying protocol, such as a TCP error.
      */
+    public abstract InetAddress getInetAddress() throws IOException;
+
+    /**
+     * Return the address of the interface to which this instance of JmDNS is bound.
+     *
+     * @return Internet Address
+     * @exception IOException
+     *                if there is an error in the underlying protocol, such as a TCP error.
+     * @deprecated do not use this implementation yields unpredictable results use {@link #getInetAddress()}
+     */
+    @Deprecated
     public abstract InetAddress getInterface() throws IOException;
 
     /**

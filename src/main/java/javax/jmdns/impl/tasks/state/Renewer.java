@@ -6,7 +6,6 @@ package javax.jmdns.impl.tasks.state;
 
 import java.io.IOException;
 import java.util.Timer;
-import java.util.logging.Logger;
 
 import javax.jmdns.impl.DNSOutgoing;
 import javax.jmdns.impl.DNSRecord;
@@ -20,7 +19,6 @@ import javax.jmdns.impl.constants.DNSState;
  * The Renewer is there to send renewal announcement when the record expire for ours infos.
  */
 public class Renewer extends DNSStateTask {
-    static Logger logger = Logger.getLogger(Renewer.class.getName());
 
     public Renewer(JmDNSImpl jmDNSImpl) {
         super(jmDNSImpl, defaultTTL());
@@ -99,7 +97,7 @@ public class Renewer extends DNSStateTask {
     @Override
     protected DNSOutgoing buildOutgoingForDNS(DNSOutgoing out) throws IOException {
         DNSOutgoing newOut = out;
-        for (DNSRecord answer : this.getDns().getLocalHost().answers(DNSRecordClass.UNIQUE, this.getTTL())) {
+        for (DNSRecord answer : this.getDns().getLocalHost().answers(DNSRecordClass.CLASS_ANY, DNSRecordClass.UNIQUE, this.getTTL())) {
             newOut = this.addAnswer(newOut, null, answer);
         }
         return newOut;
@@ -112,7 +110,7 @@ public class Renewer extends DNSStateTask {
     @Override
     protected DNSOutgoing buildOutgoingForInfo(ServiceInfoImpl info, DNSOutgoing out) throws IOException {
         DNSOutgoing newOut = out;
-        for (DNSRecord answer : info.answers(DNSRecordClass.UNIQUE, this.getTTL(), this.getDns().getLocalHost())) {
+        for (DNSRecord answer : info.answers(DNSRecordClass.CLASS_ANY, DNSRecordClass.UNIQUE, this.getTTL(), this.getDns().getLocalHost())) {
             newOut = this.addAnswer(newOut, null, answer);
         }
         return newOut;
