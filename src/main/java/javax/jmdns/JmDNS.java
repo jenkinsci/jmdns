@@ -448,4 +448,9 @@ public abstract class JmDNS implements Closeable {
      */
     public abstract Delegate setDelegate(Delegate value);
 
+    /**
+     * Works like {@link #close()} but terminate uncleanly, but rapidly and without blocking.
+     */
+    public abstract void abort();
+
 }

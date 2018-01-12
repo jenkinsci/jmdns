@@ -1,9 +1,9 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>org.jmdns</groupId>
+	<groupId>org.jenkins-ci</groupId>
 	<artifactId>jmdns</artifactId>
-	<version>3.5.3</version>
+	<version>3.5.3-jenkins-1</version>
 	<name>JmDNS</name>
 	<packaging>jar</packaging>
 	<description>JmDNS is a Java implementation of multi-cast DNS and can be used for service registration and discovery in local area networks. JmDNS is fully compatible with Apple's Bonjour.
@@ -29,13 +29,9 @@ The project was originally started in December 2002 by Arthur van Hoff at Strang
 	</scm>
     <distributionManagement>
         <repository>
-            <id>bintray</id>
-            <url>https://api.bintray.com/maven/jmdns/mvn/jmdns/;publish=1</url>
+            <id>maven.jenkins-ci.org</id>
+            <url>http://maven.jenkins-ci.org:8081/content/repositories/releases</url>
         </repository>
-        <snapshotRepository>
-            <id>jfrog</id>
-            <url>http://oss.jfrog.org/artifactory/oss-snapshot-local</url>
-        </snapshotRepository>
     </distributionManagement>
 	<issueManagement>
 		<system>github</system>
